@@ -25,11 +25,11 @@ export default function DocsPage() {
         {SECTIONS.map((section) => (
           <div key={section.title}>
             <h2 className="mb-2 text-xl font-semibold">{section.title}</h2>
-            <p className="text-gray-600">{section.body}</p>
+            <p className="text-gray-600 dark:text-gray-400">{section.body}</p>
           </div>
         ))}
       </div>
-      <div className="mt-10 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <div className="mt-10 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
         <p className="mb-1 font-semibold">Not built yet</p>
         <p>
           Real threshold encryption and validator coordination don&apos;t exist yet —

@@ -9,7 +9,7 @@ export default function WalletConnect() {
     return (
       <button
         onClick={disconnect}
-        className="rounded-lg bg-gray-100 px-4 py-2 font-mono text-sm hover:bg-gray-200"
+        className="rounded-lg bg-gray-100 px-4 py-2 font-mono text-sm hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
         title="Click to disconnect"
       >
         {shortenAddress(address)}

@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import WalletConnect from '../common/WalletConnect';
+import ThemeToggle from '../common/ThemeToggle';
 
 const NAV_LINKS = [
   { to: '/swap', label: 'Swap' },
@@ -11,7 +12,7 @@ export default function Header() {
   const location = useLocation();
 
   return (
-    <header className="border-b bg-white">
+    <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link to="/" className="text-xl font-bold">
           Cipher Protocol
@@ -23,15 +24,18 @@ export default function Header() {
               to={link.to}
               className={`text-sm font-medium ${
                 location.pathname === link.to
-                  ? 'text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
               }`}
             >
               {link.label}
             </Link>
           ))}
         </nav>
-        <WalletConnect />
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <WalletConnect />
+        </div>
       </div>
     </header>
   );

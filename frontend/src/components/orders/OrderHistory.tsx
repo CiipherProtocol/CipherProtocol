@@ -9,7 +9,7 @@ interface Props {
 export default function OrderHistory({ orders }: Props) {
   if (orders.length === 0) {
     return (
-      <div className="py-12 text-center text-gray-500">
+      <div className="py-12 text-center text-gray-500 dark:text-gray-400">
         <p>No orders yet</p>
       </div>
     );
@@ -27,7 +27,7 @@ export default function OrderHistory({ orders }: Props) {
         <div key={status}>
           <div className="mb-4 flex items-center gap-3">
             <OrderStatus status={status as OrderStatusValue} />
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
               {statusOrders.length} order{statusOrders.length !== 1 ? 's' : ''}
             </span>
           </div>

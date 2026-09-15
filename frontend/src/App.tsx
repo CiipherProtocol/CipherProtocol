@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import { WalletProvider } from './context/WalletContext';
 import { PriceProvider } from './context/PriceContext';
 import Layout from './components/layout/Layout';
@@ -10,20 +11,22 @@ import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
   return (
-    <WalletProvider>
-      <PriceProvider>
-        <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/swap" element={<SwapPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/docs" element={<DocsPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </Layout>
-        </Router>
-      </PriceProvider>
-    </WalletProvider>
+    <ThemeProvider>
+      <WalletProvider>
+        <PriceProvider>
+          <Router>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/swap" element={<SwapPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/docs" element={<DocsPage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </PriceProvider>
+      </WalletProvider>
+    </ThemeProvider>
   );
 }

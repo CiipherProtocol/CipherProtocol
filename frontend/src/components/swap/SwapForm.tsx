@@ -90,7 +90,10 @@ export default function SwapForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 rounded-lg bg-white p-6 shadow-lg">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900 dark:shadow-none dark:ring-1 dark:ring-gray-800"
+    >
       <div>
         <label className="mb-2 block text-sm font-semibold">From</label>
         <div className="flex gap-2">
@@ -103,7 +106,7 @@ export default function SwapForm() {
         <button
           type="button"
           onClick={flipTokens}
-          className="rounded-full bg-gray-100 p-2 hover:bg-gray-200"
+          className="rounded-full bg-gray-100 p-2 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
           aria-label="Flip tokens"
         >
           ⇅
@@ -129,7 +132,7 @@ export default function SwapForm() {
         text={isConnected ? 'Submit Order' : 'Connect Wallet'}
       />
 
-      <div className="rounded border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+      <div className="rounded border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
         <p className="mb-1 font-semibold">🔒 Your order is encrypted</p>
         <p>No validator or miner can see your swap details. Settlement happens atomically.</p>
       </div>

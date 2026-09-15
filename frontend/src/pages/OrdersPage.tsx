@@ -9,7 +9,11 @@ export default function OrdersPage() {
   const { orders, loading, error } = useUserOrders(address);
 
   if (!address) {
-    return <div className="py-12 text-center text-gray-500">Please connect your wallet</div>;
+    return (
+      <div className="py-12 text-center text-gray-500 dark:text-gray-400">
+        Please connect your wallet
+      </div>
+    );
   }
 
   return (

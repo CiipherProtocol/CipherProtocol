@@ -5,7 +5,7 @@ export default function HomePage() {
   return (
     <div className="py-20 text-center">
       <h1 className="mb-4 text-4xl font-bold">MEV-Resistant Swaps</h1>
-      <p className="mx-auto mb-8 max-w-xl text-gray-600">
+      <p className="mx-auto mb-8 max-w-xl text-gray-600 dark:text-gray-400">
         Orders are encrypted before they leave your browser, batched, and settled atomically —
         no validator or miner can front-run your trade.
       </p>
