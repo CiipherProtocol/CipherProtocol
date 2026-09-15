@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Cipher Protocol" width="120">
+</p>
+
 # Cipher Protocol
 
 An encrypted-orderflow DEX on Stellar/Soroban. Swap orders are meant to be
