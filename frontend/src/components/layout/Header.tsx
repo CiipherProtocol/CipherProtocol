@@ -14,7 +14,8 @@ export default function Header() {
   return (
     <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <Link to="/" className="text-xl font-bold">
+        <Link to="/" className="flex items-center gap-2 text-xl font-bold">
+          <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg" />
           Cipher Protocol
         </Link>
         <nav className="flex items-center gap-6">
