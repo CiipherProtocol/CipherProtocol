@@ -74,8 +74,12 @@ describe('wallet-signature auth', () => {
       (await request(app).post('/api/orders').set('x-user-address', user.address).send({})).status
     ).toBe(401);
     const { authorization } = await authHeaders(app, user);
-    const tampered = authorization.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'));
-    expect((await request(app).post('/api/orders').set('authorization', tampered).send({})).status).toBe(401);
+    const flip = (c: string) => (c === 'A' ? 'B' : 'A');
+    // Every character position, including the final one whose low bits are base64url padding.
+    for (const i of [authorization.length - 1, authorization.length - 10, 'Bearer '.length + 2]) {
+      const tampered = authorization.slice(0, i) + flip(authorization[i]) + authorization.slice(i + 1);
+      expect((await request(app).post('/api/orders').set('authorization', tampered).send({})).status).toBe(401);
+    }
   });
 
   it('binds orders to the authenticated address, and keeps order history private', async () => {

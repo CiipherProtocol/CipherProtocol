@@ -125,8 +125,10 @@ export const authService = {
   verifySession(token: string): Session | null {
     const [payload, mac, extra] = token.split('.');
     if (!payload || !mac || extra !== undefined) return null;
-    const expected = hmac('session.', payload);
-    const given = Buffer.from(mac, 'base64url');
+    // Compare the canonical encoding, not decoded bytes: base64url's spare
+    // padding bits would otherwise let several spellings of one MAC verify.
+    const expected = Buffer.from(hmac('session.', payload).toString('base64url'));
+    const given = Buffer.from(mac);
     if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return null;
     try {
       const { a, e } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
