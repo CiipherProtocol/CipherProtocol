@@ -1,27 +1,11 @@
-import express, { Express, Request, Response } from 'express';
-import cors from 'cors';
 import { config } from './config';
 import { sequelize } from './db';
-import { errorHandler } from './middleware/errorHandler';
+import { createApp } from './app';
 import { batchingService } from './services/batchingService';
-import * as routes from './routes';
+import { validatorService } from './services/validatorService';
 import logger from './utils/logger';
 
-const app: Express = express();
-
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', mode: 'encrypted-orderflow-dex' });
-});
-
-app.use('/api/orders', routes.orders);
-app.use('/api/batches', routes.batches);
-app.use('/api/settlement', routes.settlement);
-app.use('/api/config', routes.config);
-
-app.use(errorHandler);
+const app = createApp();
 
 async function start() {
   await sequelize.authenticate();
@@ -29,7 +13,13 @@ async function start() {
 
   // Dev convenience: create/update tables from models. Production should use
   // real migrations (e.g. umzug/sequelize-cli) instead of sync().
-  await sequelize.sync();
+  await sequelize.sync({ alter: true });
+
+  await validatorService.syncValidatorRegistry();
+  const keyInfo = validatorService.getPublicKeyInfo();
+  logger.info(
+    `Validator set ready: ${keyInfo.threshold}-of-${keyInfo.validator_count}, group key ${keyInfo.threshold_pubkey}`
+  );
 
   app.listen(config.port, () => {
     logger.info(`Backend running on port ${config.port}`);

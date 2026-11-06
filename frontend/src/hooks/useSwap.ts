@@ -12,8 +12,9 @@ export const useSwap = () => {
     setError(null);
 
     try {
-      const response = await api.post('/orders', orderData, {
-        headers: { 'x-user-address': orderData.user },
+      const { user, ...body } = orderData;
+      const response = await api.post('/orders', body, {
+        headers: { 'x-user-address': user },
       });
       return response.data.order as Order;
     } catch (err: unknown) {

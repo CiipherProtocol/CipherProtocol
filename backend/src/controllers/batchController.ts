@@ -10,10 +10,12 @@ export const batchController = {
       throw new AppError('order_ids must not be empty');
     }
 
-    const orders = await Order.findAll({ where: { id: orderIds } });
-    if (orders.length !== orderIds.length) {
-      throw new AppError('Some orders not found');
+    const uniqueIds = [...new Set(orderIds)];
+    const orders = await Order.findAll({ where: { id: uniqueIds, status: 'pending' } });
+    if (orders.length !== uniqueIds.length) {
+      throw new AppError('Some orders not found or not pending');
     }
+    orderIds = uniqueIds;
 
     const batch = await Batch.create({
       id: crypto.randomUUID(),

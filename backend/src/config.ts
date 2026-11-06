@@ -25,6 +25,21 @@ export const config = {
 
   batchSize: Number(process.env.BATCH_SIZE) || 100,
   batchTimeoutMs: Number(process.env.BATCH_TIMEOUT_MS) || 30000,
+
+  /** Simulated validator set: `validatorThreshold` of `validatorCount`
+   * shares are needed to decrypt any order. */
+  validatorCount: Number(process.env.VALIDATOR_COUNT) || 5,
+  validatorThreshold: Number(process.env.VALIDATOR_THRESHOLD) || 3,
+  /** Where the simulated validators' key shares live (dev only — a real
+   * deployment has each share on a different machine). Empty = in-memory. */
+  validatorKeyFile:
+    process.env.VALIDATOR_KEY_FILE ?? path.join(__dirname, '..', 'data', 'validator-keys.json'),
+  /** Validator indices that misbehave (return invalid shares) — for
+   * demonstrating that DLEQ proofs catch them. e.g. "2,4". */
+  byzantineValidators: (process.env.BYZANTINE_VALIDATORS || '')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0),
 };
 
 function parseTokenContracts(raw: string | undefined): Record<string, string> {

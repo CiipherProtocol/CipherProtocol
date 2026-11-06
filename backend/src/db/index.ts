@@ -4,7 +4,10 @@ import path from 'path';
 import { config } from '../config';
 import logger from '../utils/logger';
 
-export const sequelize = config.databaseUrl
+export const sequelize =
+  config.databaseUrl === ':memory:'
+    ? new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false })
+    : config.databaseUrl
   ? new Sequelize(config.databaseUrl, { logging: false })
   : (() => {
       fs.mkdirSync(path.dirname(config.sqlitePath), { recursive: true });

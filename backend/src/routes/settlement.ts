@@ -12,14 +12,12 @@ router.get('/:batchId', async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
-// Dev/manual trigger until validator threshold-decryption is implemented —
-// accepts already-decrypted orders directly. See validatorService.
+// Retry trigger for a batch whose automatic settlement failed (e.g. RPC
+// outage). Safe to expose: it can only run the honest decrypt-and-settle
+// path, and the conditional claim in settleBatch makes it idempotent.
 router.post('/:batchId/settle', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const settlement = await settlementController.settleWithDecryptedOrders(
-      req.params.batchId,
-      req.body.decrypted_orders ?? []
-    );
+    const settlement = await settlementController.settleBatch(req.params.batchId);
     res.json({ success: true, settlement });
   } catch (error) {
     next(error);
