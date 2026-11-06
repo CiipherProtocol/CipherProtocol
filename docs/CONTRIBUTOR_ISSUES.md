@@ -28,16 +28,16 @@ All existing `dkg.test.ts` cases must still pass.
 
 ---
 
-### 2. Validator deployment: Docker Compose + TLS (150)
+### 2. TLS between coordinator and validators (150)
 
-Validators already run as separate processes (`npm run validators:dev`),
-but only on one host over plain HTTP. Add a Docker Compose setup (one
-container and one volume per validator, plus the backend), and put the
-coordinator-to-validator transport behind TLS. Mutual TLS is a bonus.
+`docker-compose.yml` runs each validator in its own container, but
+coordinator↔validator traffic is plain HTTP with bearer tokens on the
+Docker network. Add TLS. Mutual TLS, with each validator pinning the
+coordinator's certificate, is a bonus. Document how an independent
+operator would generate and exchange certs.
 
-**Acceptance:** `docker compose up` brings up 5 validators and the backend.
-The DKG completes, and an order settles. Stopping 2 validator containers
-doesn't stop settlement.
+**Acceptance:** the compose stack runs over TLS, and a validator rejects
+plaintext connections.
 
 ---
 
@@ -73,10 +73,11 @@ matching `db/models/`, and run them in the backend tests.
 
 ---
 
-### 5. Rate limiting and request-size hardening (100)
+### 5. Shared rate-limit store (100)
 
-`/api/auth/challenge` and `/api/orders` have no rate limits. Add per-IP
-limits for challenges and per-address limits for orders, with tests.
+`backend/src/middleware/rateLimit.ts` keeps counters in process memory,
+which is fine for one instance. Add an optional Redis-backed store (enabled
+by `REDIS_URL`) so limits hold across replicas, with tests for both.
 
 ---
 
