@@ -7,3 +7,5 @@ process.env.VALIDATOR_THRESHOLD = '3';
 process.env.ORDER_VAULT_CONTRACT = '';
 process.env.SETTLEMENT_ENGINE_CONTRACT = '';
 process.env.AUTH_TOKEN_SECRET = 'test-secret-test-secret-test-secret';
+process.env.RATE_LIMIT_AUTH_PER_MIN = '100000';
+process.env.RATE_LIMIT_ORDERS_PER_MIN = '100000';

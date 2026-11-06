@@ -1,0 +1,99 @@
+# Full system, one command:  docker compose up --build
+#
+#   validator-init  generates identities + tokens (once; idempotent)
+#   validator-1..5  separate containers, each mounting ONLY its own key dir
+#   backend         coordinator: runs the DKG over HTTP on first start
+#   frontend        nginx serving the app on http://localhost:8080, proxying /api
+#
+# Sealing: set ORDER_VAULT_CONTRACT + BACKEND_SIGNER_SECRET (e.g. in a .env
+# next to this file) to seal batches on Stellar testnet and have every
+# validator verify the seal on-chain. Without them, batches use the backend's
+# in-memory dev ledger and validators run with the sealing check DISABLED.
+
+x-validator: &validator
+  build: ./backend
+  image: cipher-protocol-backend
+  command: ["sh", "-c", "set -a && . /data/validator.env && exec node dist/validator/main.js"]
+  environment: &validator-env
+    VALIDATOR_KEY_DIR: /data
+    VALIDATOR_HOST: 0.0.0.0
+    VALIDATOR_PORT: "7700"  # not 6000: fetch() refuses it (WHATWG bad-port list)
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:7700/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+  depends_on:
+    validator-init:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
+services:
+  validator-init:
+    build: ./backend
+    image: cipher-protocol-backend
+    command: ["node", "dist/validator/initCluster.js"]
+    environment:
+      CLUSTER_DIR: /cluster
+      VALIDATOR_COUNT: "5"
+      ORDER_VAULT_CONTRACT: ${ORDER_VAULT_CONTRACT:-}
+      SOROBAN_RPC_URL: ${SOROBAN_RPC_URL:-https://soroban-testnet.stellar.org}
+    volumes:
+      - cluster:/cluster
+
+  validator-1:
+    <<: *validator
+    environment: { <<: *validator-env, VALIDATOR_INDEX: "1" }
+    volumes: [{ type: volume, source: cluster, target: /data, volume: { subpath: validator-1 } }]
+  validator-2:
+    <<: *validator
+    environment: { <<: *validator-env, VALIDATOR_INDEX: "2" }
+    volumes: [{ type: volume, source: cluster, target: /data, volume: { subpath: validator-2 } }]
+  validator-3:
+    <<: *validator
+    environment: { <<: *validator-env, VALIDATOR_INDEX: "3" }
+    volumes: [{ type: volume, source: cluster, target: /data, volume: { subpath: validator-3 } }]
+  validator-4:
+    <<: *validator
+    environment: { <<: *validator-env, VALIDATOR_INDEX: "4" }
+    volumes: [{ type: volume, source: cluster, target: /data, volume: { subpath: validator-4 } }]
+  validator-5:
+    <<: *validator
+    environment: { <<: *validator-env, VALIDATOR_INDEX: "5" }
+    volumes: [{ type: volume, source: cluster, target: /data, volume: { subpath: validator-5 } }]
+
+  backend:
+    build: ./backend
+    image: cipher-protocol-backend
+    environment:
+      PORT: "5001"
+      TRUST_PROXY: "1"
+      VALIDATOR_CLUSTER_FILE: /coordinator/cluster.json
+      VALIDATOR_COUNT: "5"
+      VALIDATOR_THRESHOLD: "3"
+      BATCH_TIMEOUT_MS: ${BATCH_TIMEOUT_MS:-10000}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:-}
+      ORDER_VAULT_CONTRACT: ${ORDER_VAULT_CONTRACT:-}
+      SETTLEMENT_ENGINE_CONTRACT: ${SETTLEMENT_ENGINE_CONTRACT:-}
+      BACKEND_SIGNER_SECRET: ${BACKEND_SIGNER_SECRET:-}
+      TOKEN_CONTRACTS: ${TOKEN_CONTRACTS:-}
+    volumes:
+      - { type: volume, source: cluster, target: /coordinator, read_only: true, volume: { subpath: coordinator } }
+      - backend-data:/app/data
+    depends_on:
+      validator-1: { condition: service_healthy }
+      validator-2: { condition: service_healthy }
+      validator-3: { condition: service_healthy }
+      validator-4: { condition: service_healthy }
+      validator-5: { condition: service_healthy }
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on:
+      backend: { condition: service_healthy }
+
+volumes:
+  cluster:
+  backend-data:
