@@ -51,8 +51,8 @@ understand the scope of the fix.
 
 ## Security
 
-Known, documented gaps (the simulated validator set and the trusted-dealer
-keygen) are tracked in [docs/THRESHOLD_ENCRYPTION.md](docs/THRESHOLD_ENCRYPTION.md)
+Known, documented gaps (validators sharing one process, and the
+Joint-Feldman DKG's key-bias limitation) are tracked in [docs/THRESHOLD_ENCRYPTION.md](docs/THRESHOLD_ENCRYPTION.md)
 and in the open issues. If you find a *new* vulnerability, report it
 privately through GitHub's **Security → Report a vulnerability** tab rather
 than in a public issue (see [SECURITY.md](SECURITY.md)).
