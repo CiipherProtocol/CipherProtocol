@@ -27,9 +27,11 @@ understand the scope of the fix.
 3. **Run the relevant test suite before opening a PR:**
    - `contracts/`: `cargo test` (both contracts have real test coverage —
      match that bar for new contract code)
-   - `backend/` / `frontend/`: `npx tsc --noEmit` at minimum; there's no
-     automated test suite yet for either (that's an open issue itself) —
-     if your change is hard to verify by hand, a smoke test is welcome.
+   - `backend/`: `npm run typecheck && npm test`
+   - `frontend/`: `npm test && npm run build`
+   - repo root: `./scripts/check-source-integrity.sh`
+
+   CI runs all of these on every PR.
 4. Open a PR describing what changed and, for anything touching the
    contracts or backend's Soroban integration, how you verified it (unit
    test, or a testnet call with the tx hash).
@@ -49,7 +51,11 @@ understand the scope of the fix.
 
 ## Security
 
-Two known gaps — encryption (placeholder AES/base64) and auth (placeholder
-header, no signature verification) — are already tracked as issues, not
-secret. If you find a *new* security issue, please don't open a public issue
-for it; reach out to a maintainer directly first.
+Known, documented gaps (the simulated validator set and the trusted-dealer
+keygen) are tracked in [docs/THRESHOLD_ENCRYPTION.md](docs/THRESHOLD_ENCRYPTION.md)
+and in the open issues. If you find a *new* vulnerability, report it
+privately through GitHub's **Security → Report a vulnerability** tab rather
+than in a public issue (see [SECURITY.md](SECURITY.md)).
+
+Any change to `crypto/orderCipher.ts` must be made identically in the
+backend and frontend copies. A test fails if they differ.
