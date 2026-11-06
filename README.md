@@ -9,10 +9,13 @@ encrypted before they leave the user's browser, batched, and settled
 atomically — so no single party (not a validator, not the backend, not a
 miner-equivalent) can see or front-run an order before it executes.
 
-**Status: early, working proof-of-concept.** The batching → settlement →
-AMM pipeline is real and runs end-to-end against deployed Stellar testnet
-contracts. The actual encryption is not — see [Status](#status) before you
-assume anything here is safe to put real funds behind.
+**Status: working proof-of-concept on Stellar testnet.** Orders are
+encrypted in the browser with real t-of-n threshold encryption and are only
+decrypted, with verifiable validator shares, after their batch is sealed.
+The validator set is still simulated in one process. See [Status](#status)
+before trusting this with real funds.
+
+[![CI](https://github.com/CiipherProtocol/CipherProtocol/actions/workflows/ci.yml/badge.svg)](https://github.com/CiipherProtocol/CipherProtocol/actions/workflows/ci.yml)
 
 ## Architecture
 
@@ -32,50 +35,56 @@ Each has its own README with setup/run instructions:
 ### Data flow
 
 ```
+User signs in: Freighter signs a never-submittable challenge tx -> session token
 User submits a swap
-  -> frontend encrypts it (currently a placeholder, see Status)
-  -> POST /api/orders (backend stores it, status=pending)
-  -> backend batches pending orders on a timer
-  -> order-vault.create_batch attests to the batch on-chain (order count + content hash)
-  -> validators would cooperatively decrypt the batch (unimplemented, see Status)
+  -> browser encrypts it to the validator group key
+     (ElGamal KEM on ristretto255 + AES-256-GCM, bound to the user's address)
+  -> POST /api/orders carries ciphertext only; the backend stores it with no plaintext
+  -> batching loop seals pending orders into a batch
+  -> order-vault.create_batch attests to the batch on-chain
+  -> validators each return y_i*R plus a DLEQ proof; bad shares are discarded
+  -> any t valid shares combine to decrypt; each payload is validated
   -> settlement-engine.settle_batch executes the swaps atomically against its AMM pool
-  -> results stored, orders marked settled
+  -> orders revealed and marked settled (or failed, with a reason)
 ```
+
+Full cryptographic design, threat model, and remaining gaps:
+[docs/THRESHOLD_ENCRYPTION.md](docs/THRESHOLD_ENCRYPTION.md).
 
 ## Status
 
-What's real, tested, and running against live Stellar testnet contracts:
+What's real and tested:
 
+- **Threshold encryption** (`backend/src/crypto/`): t-of-n ElGamal KEM over
+  ristretto255 with AES-256-GCM, Shamir-shared keys, Chaum–Pedersen DLEQ
+  proofs on every decryption share, and Lagrange combination. The browser
+  runs a byte-identical copy of the encryption code, and a test enforces it.
+- **Validator coordination** (`backend/src/services/validatorService.ts`):
+  shares are collected per sealed batch, proofs are verified against
+  registered keys, and up to `n − t` byzantine validators are tolerated.
+  A bad order fails on its own without blocking the batch.
+- **Wallet-signature auth** (`backend/src/services/authService.ts`): a
+  SEP-10-style challenge, signed in Freighter and verified as ed25519
+  against the claimed account. No more trusting a header.
 - **Contracts** (`contracts/`): `order-vault` and `settlement-engine`,
-  12 passing tests, deployed to testnet. `settle_batch` executes a real
-  x*y=k AMM swap with fees, verified against on-chain token balances.
-- **Backend** (`backend/`): full submit → batch → settle pipeline,
-  wired to the real deployed contracts (not stubs) via `@stellar/stellar-sdk`.
-- **Frontend** (`frontend/`): wallet connect, swap form, live batch monitor,
-  talks to the backend.
+  deployed to testnet. `settle_batch` executes a real x*y=k AMM swap with
+  fees, verified against on-chain token balances.
+- **Tests and CI**: 31 backend tests (crypto, end-to-end pipeline, auth),
+  8 frontend tests, and the contract suites. They run on every PR, together
+  with a source-integrity check that blocks hidden or obfuscated code.
 
-What's **not** real yet — the important part for anyone evaluating this:
+What's **not** real yet:
 
-- **Encryption is a placeholder.** `backend/src/services/encryptionService.ts`
-  and `frontend/src/services/encryption.ts` do plain AES/base64, not
-  threshold encryption. Anyone who can see the ciphertext and knows the
-  scheme can decrypt it alone — this defeats the entire MEV-resistance
-  premise until real threshold ECIES (or similar) is implemented.
-- **Auth is a placeholder.** `backend/src/middleware/auth.ts` trusts an
-  `x-user-address` header with no signature verification — the backend
-  cannot currently tell if a request is really from the address it claims.
-- **Threshold decryption is unimplemented.** `backend/src/services/validatorService.ts`
-  has no real validator coordination; there is no validator set.
+- **The validator set is simulated.** All `n` validators run inside the
+  backend process, and keys come from a trusted dealer. So the operator
+  could still reconstruct the group key. The cryptography is real, but the
+  distribution of trust isn't yet. Next steps: DKG and remote validators
+  (see [the design doc](docs/THRESHOLD_ENCRYPTION.md#what-is-simulated-and-whats-next)).
 - **The on-chain vault is an attestation, not a ledger of orders.**
-  `order-vault.create_batch` records an admin-signed hash + count for a
-  batch; the backend's database is still the actual order mempool. Real
-  on-chain order submission (users signing `submit_order` directly) is a
-  separate, unbuilt path.
-- No automated test suite for the backend or frontend yet (contracts have
-  one — see `contracts/*/src/test.rs`).
-
-None of this is hidden in the code — every placeholder above has a comment
-at its definition explaining what it fakes and why.
+  `order-vault.create_batch` records an admin-signed hash and count. The
+  backend database is still the mempool, and it doesn't yet commit to
+  ciphertext hashes on-chain.
+- **Schema setup uses `sequelize.sync`** rather than real migrations.
 
 ## Deployed contracts (Stellar testnet)
 

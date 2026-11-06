@@ -1,5 +1,5 @@
 import { Order } from '../../types/order';
-import { formatTimestamp, shortenAddress } from '../../utils/formatting';
+import { formatOrderAmount, formatTimestamp, shortenAddress } from '../../utils/formatting';
 import OrderStatus from './OrderStatus';
 
 export default function OrderDetails({ order }: { order: Order }) {
@@ -13,13 +13,15 @@ export default function OrderDetails({ order }: { order: Order }) {
         <dt className="text-gray-500 dark:text-gray-400">User</dt>
         <dd className="text-right font-mono">{shortenAddress(order.user_address)}</dd>
         <dt className="text-gray-500 dark:text-gray-400">From</dt>
-        <dd className="text-right">
-          {order.amount_in} {order.token_in}
-        </dd>
+        <dd className="text-right">{formatOrderAmount(order.amount_in, order.token_in)}</dd>
         <dt className="text-gray-500 dark:text-gray-400">Minimum received</dt>
-        <dd className="text-right">
-          {order.min_amount_out} {order.token_out}
-        </dd>
+        <dd className="text-right">{formatOrderAmount(order.min_amount_out, order.token_out)}</dd>
+        {order.amount_out && (
+          <>
+            <dt className="text-gray-500 dark:text-gray-400">Received</dt>
+            <dd className="text-right">{formatOrderAmount(order.amount_out, order.token_out)}</dd>
+          </>
+        )}
         {order.batch_id && (
           <>
             <dt className="text-gray-500 dark:text-gray-400">Batch</dt>

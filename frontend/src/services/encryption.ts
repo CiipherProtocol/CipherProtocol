@@ -1,11 +1,14 @@
+import { encryptOrder } from '../crypto/orderCipher';
+
 /**
- * PLACEHOLDER encryption. This base64-encodes the order payload; it provides
- * no confidentiality. It exists only to keep the submit → batch → settle
- * pipeline wired end-to-end. Replace with real threshold ECIES (matching the
- * scheme the validator set implements) before any order data is sensitive.
+ * Encrypts an order to the validator set's threshold public key (ElGamal KEM
+ * over ristretto255 + AES-256-GCM — see crypto/orderCipher.ts). The result
+ * can only be opened by `threshold` validators cooperating; the backend and
+ * any single validator learn nothing from it. Bound to `userAddress`, so it
+ * can't be replayed under another account.
  */
 export const encryptionService = {
-  encrypt(data: string, _pubkey: string): string {
-    return btoa(data);
+  encrypt(plaintext: string, thresholdPubkey: string, userAddress: string): Promise<string> {
+    return encryptOrder(plaintext, thresholdPubkey, userAddress);
   },
 };

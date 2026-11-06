@@ -1,24 +1,23 @@
 import crypto from 'crypto';
 import { Order } from '../db/models/Order';
 import { SubmitOrderBody } from '../types/order';
-import { NotFoundError } from '../utils/errors';
+import { AppError, NotFoundError } from '../utils/errors';
 
 export const orderController = {
   async submitOrder(userAddress: string, orderData: SubmitOrderBody) {
-    const order = await Order.create({
+    const duplicate = await Order.findOne({
+      where: { user_address: userAddress, nonce: orderData.nonce },
+    });
+    if (duplicate) throw new AppError('nonce already used for this address', 409);
+
+    return Order.create({
       id: crypto.randomUUID(),
       user_address: userAddress,
       encrypted_data: orderData.encrypted_data,
       threshold_pubkey: orderData.threshold_pubkey,
-      token_in: orderData.token_in,
-      token_out: orderData.token_out,
-      amount_in: orderData.amount_in,
-      min_amount_out: orderData.min_amount_out,
       nonce: orderData.nonce,
       status: 'pending',
     });
-
-    return order;
   },
 
   async getOrder(orderId: string) {

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { useSwap } from '../../hooks/useSwap';
 import { useEncryption } from '../../hooks/useEncryption';
-import { applySlippage } from '../../utils/numbers';
+import { applySlippage, toBaseUnits } from '../../utils/numbers';
+import { getTokenBySymbol } from '../../constants/tokens';
 import { validateSwap } from '../../utils/validation';
 import { getErrorMessage } from '../../utils/errors';
 import { DEFAULT_SLIPPAGE_BPS } from '../../constants/config';
@@ -11,6 +12,12 @@ import AmountInput from './AmountInput';
 import PriceImpact from './PriceImpact';
 import SubmitButton from './SubmitButton';
 import Alert from '../common/Alert';
+
+function randomNonce(): number {
+  // 48 random bits: unique per order in practice, and a safe JS integer.
+  const [hi, lo] = crypto.getRandomValues(new Uint32Array(2));
+  return (hi & 0xffff) * 2 ** 32 + lo;
+}
 
 export default function SwapForm() {
   const { address, isConnected } = useWallet();
@@ -24,6 +31,7 @@ export default function SwapForm() {
   const [priceImpact, setPriceImpact] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [sealedBy, setSealedBy] = useState('');
 
   useEffect(() => {
     if (amountIn) {
@@ -60,26 +68,28 @@ export default function SwapForm() {
     try {
       setError(null);
 
+      const decimalsIn = getTokenBySymbol(tokenIn)?.decimals ?? 7;
+      const decimalsOut = getTokenBySymbol(tokenOut)?.decimals ?? 7;
       const order = {
+        user: address,
         token_in: tokenIn,
         token_out: tokenOut,
-        amount_in: amountIn,
-        min_amount_out: minAmountOut,
-        nonce: Math.floor(Math.random() * 1_000_000),
+        amount_in: toBaseUnits(amountIn, decimalsIn),
+        min_amount_out: toBaseUnits(minAmountOut, decimalsOut),
+        nonce: randomNonce(),
       };
 
       const encrypted = await encryptOrder(order);
 
+      // Only ciphertext leaves the browser — the backend can't see the
+      // tokens or amounts until the batch is threshold-decrypted.
       await submitOrder({
         user: address,
         encrypted_data: encrypted.data,
         threshold_pubkey: encrypted.pubkey,
-        token_in: tokenIn,
-        token_out: tokenOut,
-        amount_in: amountIn,
-        min_amount_out: minAmountOut,
         nonce: order.nonce,
       });
+      setSealedBy(`${encrypted.threshold}-of-${encrypted.validatorCount}`);
 
       setAmountIn('');
       setMinAmountOut('');
@@ -124,7 +134,11 @@ export default function SwapForm() {
       <PriceImpact impact={priceImpact} />
 
       {error && <Alert variant="error">{error}</Alert>}
-      {success && <Alert variant="success">Order submitted and encrypted.</Alert>}
+      {success && (
+        <Alert variant="success">
+          Order encrypted and submitted. It can only be decrypted by {sealedBy} validators together, after its batch is sealed.
+        </Alert>
+      )}
 
       <SubmitButton
         loading={submitting}
@@ -134,7 +148,11 @@ export default function SwapForm() {
 
       <div className="rounded border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
         <p className="mb-1 font-semibold">🔒 Your order is encrypted</p>
-        <p>No validator or miner can see your swap details. Settlement happens atomically.</p>
+        <p>
+          Your swap is encrypted in this browser to the validator set&apos;s threshold key. The server only ever
+          receives ciphertext, and no single validator can decrypt it. Orders are revealed only after their batch is
+          sealed, then settled atomically.
+        </p>
       </div>
     </form>
   );

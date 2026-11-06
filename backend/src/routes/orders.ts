@@ -20,8 +20,13 @@ router.post(
   }
 );
 
-router.get('/user/:userAddress', async (req: Request, res: Response, next: NextFunction) => {
+// Order history is private: even sealed orders leak timing and frequency.
+router.get('/user/:userAddress', validateAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (req.params.userAddress !== req.user!.address) {
+      res.status(403).json({ error: 'You can only list your own orders' });
+      return;
+    }
     const orders = await orderController.getUserOrders(req.params.userAddress);
     res.json(orders);
   } catch (error) {

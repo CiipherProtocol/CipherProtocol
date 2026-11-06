@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { walletService } from '../services/wallet';
+import { authService } from '../services/auth';
 
 export interface WalletContextType {
   address: string | null;
@@ -36,6 +37,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const disconnect = useCallback(() => {
+    authService.clear();
     setAddress(null);
   }, []);
 

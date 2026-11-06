@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
+import { authService } from '../services/auth';
 import { Order } from '../types/order';
 import { getErrorMessage } from '../utils/errors';
 
@@ -13,7 +14,9 @@ export const useUserOrders = (userAddress: string | null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/orders/user/${userAddress}`);
+      const response = await api.get(`/orders/user/${userAddress}`, {
+        headers: await authService.authHeaders(userAddress),
+      });
       setOrders(response.data);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
