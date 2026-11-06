@@ -3,38 +3,43 @@
 Point values follow Drips Wave's complexity bands (100/150/200). Each
 section is a ready-to-post issue body. See the commands at the bottom.
 
-**Already done** (were issues #1–#5 and #8 in the first draft): threshold
-encryption, validator share coordination (simulated set), signature auth,
+**Already done:** threshold encryption, validator share coordination,
+distributed key generation (Joint-Feldman with complaints), signature auth,
 backend and frontend test suites, and CI. See the root README's Status
 section.
 
 ---
 
-### 1. Distributed key generation for the validator set (200)
+### 1. Unbiased DKG: Pedersen commitments in round 1 (150)
 
-`backend/src/crypto/threshold.ts#generateKeySet` is a trusted dealer, so
-whoever runs keygen learns the group secret `y`. Replace it with a
-Pedersen/Feldman DKG so `y` never exists in one place. Every validator
-should end up with only its own share `y_i`, plus public `Y` and
-`Y_i = y_i·G` for all `i`.
+`backend/src/crypto/dkg.ts` implements Joint-Feldman DKG with complaints.
+A dealer that waits to see the others' Feldman commitments can bias the
+distribution of the group key (it still can't learn the secret). Upgrade
+round 1 to GJKR: deal with Pedersen commitments `a·G + b·H` (with `H` from
+`Point.hashToCurve`), and only publish Feldman commitments for `QUAL`
+afterwards.
 
-**Scope:** DKG rounds (commitments, share distribution, complaint and
-verification), run across the in-process `SimulatedValidator`s, plus tests
-showing (a) the result decrypts through the existing `combineShares` path
-and (b) a dealer that sends an inconsistent share is detected.
-**Read first:** [docs/THRESHOLD_ENCRYPTION.md](THRESHOLD_ENCRYPTION.md).
+**Scope:** `DkgParticipant` round 1 and the extraction round, plus tests.
+All existing `dkg.test.ts` cases must still pass.
+**Read first:** the "Key generation (DKG)" section of
+[docs/THRESHOLD_ENCRYPTION.md](THRESHOLD_ENCRYPTION.md).
 
 ---
 
 ### 2. Remote validator nodes (200)
 
 All validators are `SimulatedValidator` instances inside the backend
-process. Build a standalone validator service (one share per process) and a
+process. The DKG removed the dealer, but co-located validators mean one
+operator could still collect `t` shares. Build a standalone validator service (one share per process) and a
 `RemoteValidator` client implementing the existing `ValidatorNode`
 interface in `backend/src/services/validatorNetwork.ts`.
 
-**Acceptance:** the pipeline tests pass against 5 validator processes, and
-the same tests pass with 2 of them killed. The validator only releases
+Both the decryption calls and the DKG rounds already go through that
+interface. Broadcasts need sender signatures once they cross the network.
+
+**Acceptance:** DKG runs across 5 validator processes, each persisting only
+its own share. The pipeline tests pass against them, and still pass with 2
+of them killed. The validator only releases
 shares for a batch whose `order-vault` attestation exists on-chain.
 
 ---
@@ -102,7 +107,7 @@ done
 gh label create "help wanted" --repo CiipherProtocol/CipherProtocol --color 008672
 
 gh issue create --repo CiipherProtocol/CipherProtocol \
-  --title "Distributed key generation for the validator set" \
-  --label "help wanted,points:200" --body-file issue-1.md
+  --title "Unbiased DKG: Pedersen commitments in round 1" \
+  --label "help wanted,points:150" --body-file issue-1.md
 # …repeat per issue with its points label
 ```

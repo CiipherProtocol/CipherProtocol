@@ -2,29 +2,28 @@
  * Threshold side of the order cipher (validator-only; never shipped to the
  * browser). See orderCipher.ts for the encryption scheme.
  *
- *  - keygen:         t-of-n Shamir sharing of the group secret y.
+ *  - keygen:         see dkg.ts — validators jointly generate y so that it
+ *                    never exists in one place; each ends up with y_i only.
  *  - partialDecrypt: validator i returns D_i = y_i·R with a Chaum–Pedersen
  *                    DLEQ proof that log_G(Y_i) = log_R(D_i), i.e. that it
  *                    used its real share and not garbage.
  *  - combine:        any t verified shares → K = Σ λ_i·D_i = y·R.
  *
- * Keygen here is a trusted dealer, which is fine for the simulated validator
- * set (one process plays every validator). A real deployment needs a DKG
- * (e.g. Pedersen/Feldman) so no dealer ever sees y — see
- * docs/THRESHOLD_ENCRYPTION.md.
+ * See docs/THRESHOLD_ENCRYPTION.md for the full design.
  */
 import { ristretto255 } from '@noble/curves/ed25519';
 import { sha512 } from '@noble/hashes/sha2';
 import { bytesToHex, hexToBytes, parsePoint, randomScalar } from './orderCipher';
 
-const Point = ristretto255.Point;
-type RistrettoPoint = InstanceType<typeof Point>;
-const L = Point.Fn.ORDER;
+export const Point = ristretto255.Point;
+export type RistrettoPoint = InstanceType<typeof Point>;
+export const L = Point.Fn.ORDER;
 const DLEQ_DOMAIN = new TextEncoder().encode('cipher-protocol/dleq/v1');
 
-const mod = (a: bigint) => ((a % L) + L) % L;
-const scalarToHex = (s: bigint) => s.toString(16).padStart(64, '0');
-const hexToScalar = (h: string) => {
+export const mod = (a: bigint) => ((a % L) + L) % L;
+export const scalarToHex = (s: bigint) => s.toString(16).padStart(64, '0');
+export const hexToScalar = (h: string) => {
+  if (!/^[0-9a-f]{64}$/i.test(h)) throw new Error('malformed scalar');
   const s = BigInt('0x' + h);
   if (s <= 0n || s >= L) throw new Error('scalar out of range');
   return s;
@@ -39,38 +38,12 @@ export interface KeyShare {
   verificationKey: string;
 }
 
-export interface ThresholdKeySet {
-  threshold: number;
-  groupPublicKey: string;
-  shares: KeyShare[];
-}
-
 export interface DecryptionShare {
   index: number;
   /** D_i = y_i·R, hex. */
   share: string;
   /** DLEQ proof (challenge c, response z), hex scalars. */
   proof: { c: string; z: string };
-}
-
-export function generateKeySet(threshold: number, total: number): ThresholdKeySet {
-  if (!Number.isInteger(threshold) || !Number.isInteger(total) || threshold < 1 || threshold > total) {
-    throw new Error(`invalid threshold ${threshold}-of-${total}`);
-  }
-  // f(x) = a_0 + a_1 x + … + a_{t-1} x^{t-1}, with a_0 = y the group secret.
-  const coeffs = Array.from({ length: threshold }, () => randomScalar());
-  const evalAt = (x: bigint) => coeffs.reduceRight((acc, a) => mod(acc * x + a), 0n);
-
-  const shares: KeyShare[] = [];
-  for (let i = 1; i <= total; i++) {
-    const secret = evalAt(BigInt(i));
-    shares.push({
-      index: i,
-      secret: scalarToHex(secret),
-      verificationKey: Point.BASE.multiply(secret).toHex(),
-    });
-  }
-  return { threshold, groupPublicKey: Point.BASE.multiply(coeffs[0]).toHex(), shares };
 }
 
 function challenge(...points: RistrettoPoint[]): bigint {

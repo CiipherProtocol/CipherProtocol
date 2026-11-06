@@ -3,4 +3,4 @@ dist
 .env
 data/*.sqlite3
 *.local
-data/validator-keys.json
+data/validators/

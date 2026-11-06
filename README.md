@@ -69,16 +69,21 @@ What's real and tested:
 - **Contracts** (`contracts/`): `order-vault` and `settlement-engine`,
   deployed to testnet. `settle_batch` executes a real x*y=k AMM swap with
   fees, verified against on-chain token balances.
-- **Tests and CI**: 31 backend tests (crypto, end-to-end pipeline, auth),
+- **Distributed key generation** (`backend/src/crypto/dkg.ts`): validators
+  jointly generate the threshold key (Joint-Feldman with complaints), so no
+  dealer ever knows the group secret. Shares travel encrypted to their
+  recipient, and dealers who cheat are disqualified.
+- **Tests and CI**: 41 backend tests (crypto, DKG, end-to-end pipeline, auth),
   8 frontend tests, and the contract suites. They run on every PR, together
   with a source-integrity check that blocks hidden or obfuscated code.
 
 What's **not** real yet:
 
-- **The validator set is simulated.** All `n` validators run inside the
-  backend process, and keys come from a trusted dealer. So the operator
-  could still reconstruct the group key. The cryptography is real, but the
-  distribution of trust isn't yet. Next steps: DKG and remote validators
+- **The validators share one process.** There's no dealer anymore, but all
+  `n` validators run inside the backend and keep their share files on one
+  disk. So the operator of that machine could still collect `t` shares. The
+  cryptography is real, but trust is only truly distributed once each
+  validator runs on its own machine. Next step: remote validators
   (see [the design doc](docs/THRESHOLD_ENCRYPTION.md#what-is-simulated-and-whats-next)).
 - **The on-chain vault is an attestation, not a ledger of orders.**
   `order-vault.create_batch` records an admin-signed hash and count. The

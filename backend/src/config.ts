@@ -34,10 +34,10 @@ export const config = {
    * shares are needed to decrypt any order. */
   validatorCount: Number(process.env.VALIDATOR_COUNT) || 5,
   validatorThreshold: Number(process.env.VALIDATOR_THRESHOLD) || 3,
-  /** Where the simulated validators' key shares live (dev only — a real
-   * deployment has each share on a different machine). Empty = in-memory. */
-  validatorKeyFile:
-    process.env.VALIDATOR_KEY_FILE ?? path.join(__dirname, '..', 'data', 'validator-keys.json'),
+  /** Directory holding one key file per simulated validator, written by the
+   * DKG on first start (a real deployment keeps each on its own machine).
+   * Empty = in-memory, re-run DKG every start. */
+  validatorKeyDir: process.env.VALIDATOR_KEY_DIR ?? path.join(__dirname, '..', 'data', 'validators'),
   /** Validator indices that misbehave (return invalid shares) — for
    * demonstrating that DLEQ proofs catch them. e.g. "2,4". */
   byzantineValidators: (process.env.BYZANTINE_VALIDATORS || '')

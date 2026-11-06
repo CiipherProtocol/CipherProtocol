@@ -13,7 +13,7 @@ const SECTIONS = [
   },
   {
     title: '4. Threshold decryption',
-    body: 'Only after sealing does each validator compute a decryption share with a zero-knowledge proof that it’s correct. Any t of n valid shares decrypt the batch. Fewer reveal nothing, and invalid shares are detected and discarded.',
+    body: 'The validators generated the encryption key together (distributed key generation), so no one ever held the whole key. Only after sealing does each validator compute a decryption share with a zero-knowledge proof that it’s correct. Any t of n valid shares decrypt the batch. Fewer reveal nothing, and invalid shares are detected and discarded.',
   },
   {
     title: '5. Atomic settlement',
@@ -36,9 +36,9 @@ export default function DocsPage() {
       <div className="mt-10 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
         <p className="mb-1 font-semibold">Still simulated</p>
         <p>
-          The encryption and share verification are real, but all validators currently run inside one backend
-          process with keys from a trusted dealer. Distributed key generation and independent validator operators
-          are next. See the{' '}
+          The encryption, share verification, and distributed key generation are real. No dealer ever knows the
+          group key. But all validators currently run inside one backend process, so trust isn&apos;t truly
+          distributed until each runs on its own machine, which is the next step. See the{' '}
           <a
             href="https://github.com/CiipherProtocol/CipherProtocol/blob/main/docs/THRESHOLD_ENCRYPTION.md"
             className="underline"

@@ -5,7 +5,7 @@ import { DecryptionShare, combineShares, verifyDecryptionShare } from '../crypto
 import { DecryptedOrder } from '../types/order';
 import { getErrorMessage } from '../utils/errors';
 import logger from '../utils/logger';
-import { getValidatorNetwork } from './validatorNetwork';
+import { getValidatorNetwork, initValidatorNetwork } from './validatorNetwork';
 
 export type DecryptionOutcome =
   | { orderId: string; ok: true; order: DecryptedOrder }
@@ -51,7 +51,7 @@ export const validatorService = {
    * claims about itself.
    */
   async syncValidatorRegistry() {
-    const { validators } = getValidatorNetwork();
+    const { validators } = await initValidatorNetwork();
     for (const v of validators) {
       const [row] = await Validator.findOrCreate({
         where: { address: v.address },

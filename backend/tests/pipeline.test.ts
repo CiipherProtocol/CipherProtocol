@@ -4,22 +4,16 @@ import { createApp } from '../src/app';
 import { sequelize } from '../src/db';
 import { Order } from '../src/db/models/Order';
 import { Batch } from '../src/db/models/Batch';
-import { generateKeySet } from '../src/crypto/threshold';
 import { batchingService } from '../src/services/batchingService';
-import { SimulatedValidator, setValidatorNetwork } from '../src/services/validatorNetwork';
+import { createSimulatedNetwork, setValidatorNetwork } from '../src/services/validatorNetwork';
 import { validatorService } from '../src/services/validatorService';
 import { authHeaders, newUser, submitSwap } from './helpers';
 
 const app = createApp();
 
-/** Fresh 3-of-5 validator set where the listed indices misbehave. */
+/** Fresh 3-of-5 validator set, keyed by a real DKG, where the listed indices misbehave. */
 async function useNetwork(byzantine: number[] = []) {
-  const keys = generateKeySet(3, 5);
-  setValidatorNetwork({
-    threshold: keys.threshold,
-    groupPublicKey: keys.groupPublicKey,
-    validators: keys.shares.map((s) => new SimulatedValidator(s, byzantine.includes(s.index))),
-  });
+  setValidatorNetwork(await createSimulatedNetwork({ count: 5, threshold: 3, byzantine }));
   await validatorService.syncValidatorRegistry();
 }
 

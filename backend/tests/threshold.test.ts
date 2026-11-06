@@ -4,16 +4,16 @@ import path from 'path';
 import { decryptWithSharedPoint, encryptOrder, parseCiphertext } from '../src/crypto/orderCipher';
 import {
   combineShares,
-  generateKeySet,
   lagrangeAtZero,
   partialDecrypt,
   verifyDecryptionShare,
 } from '../src/crypto/threshold';
+import { dealKeySet } from './fixtures/dealer';
 
 const USER = 'GBUSERADDRESSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 
 describe('threshold order cipher', () => {
-  const keys = generateKeySet(3, 5);
+  const keys = dealKeySet(3, 5);
 
   async function sealed(msg = '{"swap":1}') {
     const ct = await encryptOrder(msg, keys.groupPublicKey, USER);
@@ -91,8 +91,8 @@ describe('threshold order cipher', () => {
   });
 
   it('rejects invalid threshold parameters', () => {
-    expect(() => generateKeySet(0, 3)).toThrow();
-    expect(() => generateKeySet(4, 3)).toThrow();
+    expect(() => dealKeySet(0, 3)).toThrow();
+    expect(() => dealKeySet(4, 3)).toThrow();
   });
 
   it('frontend ships a byte-identical copy of the cipher', () => {
