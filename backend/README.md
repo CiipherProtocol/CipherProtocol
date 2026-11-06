@@ -43,6 +43,10 @@ npm run validators:dev        # terminal 1: 5 validator processes on :6001-6005
 VALIDATOR_CLUSTER_FILE=data/cluster/cluster.json npm run dev   # terminal 2
 ```
 
+Set `ORDER_VAULT_CONTRACT` before `validators:dev` so each validator
+verifies batch seals on-chain. Without it there is no shared chain, so the
+dev cluster disables that check and warns.
+
 The first backend start runs the DKG over HTTP. Later starts reuse the
 shares, and the backend keeps working with up to 2 validators down. A
 single production validator runs with `npm run validator:start`, configured
@@ -61,7 +65,7 @@ the DLEQ proofs reject bad validators, set `BYZANTINE_VALIDATORS=2,4`. With
 | POST | `/api/orders` | Bearer | `{encrypted_data, threshold_pubkey, nonce}`, ciphertext only |
 | GET | `/api/orders/user/:address` | Bearer (own address) | Your order history |
 | GET | `/api/orders/:id` | – | One order (plaintext fields `null` until settled) |
-| GET | `/api/batches`, `/api/batches/:id` | – | Batches |
+| GET | `/api/batches`, `/api/batches/:id` | – | Batches, with `content_hash` (the on-chain seal) and `commitment_tx` |
 | GET | `/api/settlement/:batchId` | – | Settlement results |
 | POST | `/api/settlement/:batchId/settle` | – | Retry a failed batch (idempotent) |
 
