@@ -19,9 +19,11 @@ HKDF-SHA256 and AES-256-GCM. The code is in
 (`orderCipher.ts`) is shipped byte-identically to the frontend, and a test
 enforces that.
 
-**Setup (t-of-n).** The group secret `y` is split with Shamir secret sharing
-into shares `y_1 … y_n`. Validator `i` holds `y_i`. Everyone knows the group
-key `Y = y·G` and each validator's verification key `Y_i = y_i·G`.
+**Setup (t-of-n), by distributed key generation.** The validators jointly
+generate a group secret `y` that **no party ever holds**: not a validator,
+not the coordinator, not the operator. Validator `i` ends up with only a
+Shamir share `y_i`. Everyone knows the group key `Y = y·G` and each
+validator's verification key `Y_i = y_i·G`. See [Key generation](#key-generation-dkg).
 
 **Encrypt (browser).** For an order `m` from user address `addr`:
 
@@ -55,21 +57,71 @@ derive `k` and open the ciphertext.
 | The backend stores no plaintext before settlement | The client sends only `{encrypted_data, threshold_pubkey, nonce}` | `pipeline.test.ts`, `SwapForm.test.tsx` |
 | Ordering is fixed before contents are known | The batch is sealed (and attested on-chain) before decryption is requested | `batchingService.runOnce` |
 
+## Key generation (DKG)
+
+Joint-Feldman DKG with a complaint round (Pedersen '91; Gennaro, Jarecki,
+Krawczyk and Rabin '99), in [`dkg.ts`](../backend/src/crypto/dkg.ts):
+
+1. **Deal.** Each validator `i` picks a random polynomial `f_i` of degree
+   `t−1` and broadcasts Feldman commitments `C_{i,k} = a_{i,k}·G`. It sends
+   `s_{i→j} = f_i(j)` to each `j`, **encrypted to `j`'s transport key** with
+   the same ElGamal + AES-GCM cipher used for orders. The AAD binds each
+   share to the session, dealer and recipient. The coordinator routing these
+   messages never sees a share, and a test checks that.
+2. **Verify.** `j` decrypts and checks `s_{i→j}·G = Σ_k j^k·C_{i,k}`. A
+   missing, undecryptable or inconsistent share means `j` complains about `i`.
+3. **Respond.** An accused dealer must publish the disputed share. If it
+   checks out against the dealer's commitments, `j` uses it. If not, or if
+   the dealer stays silent, the dealer is disqualified.
+4. **Finalize.** `QUAL` is the set of dealers with well-formed commitments,
+   no equivocation, and no unanswered complaint. Then
+   `y_j = Σ_{i∈QUAL} s_{i→j}`, `Y = Σ_{i∈QUAL} C_{i,0}`, and the verification
+   keys follow from the commitments alone. Everything is computed from the
+   public transcript, so every honest validator, and any auditor, derives
+   the same `QUAL` and keys. The DKG aborts if `|QUAL| < t`. Each validator
+   also checks that `y_j·G` matches its public `Y_j`.
+
+Each validator persists only its own share, in
+`data/validators/validator-<i>.json` (mode 0600). The public transcript goes
+to `dkg-transcript.json` for audit.
+
+| DKG property | Test (`dkg.test.ts`) |
+|---|---|
+| Any t shares interpolate to the secret behind `Y`, and orders decrypt | "consistent t-of-n key" |
+| The coordinator never sees a secret share | "never sees a secret share" |
+| Bad share + honest reveal: complaint resolved, dealer kept | "answers the complaint honestly" |
+| Bad share + lying reveal: dealer disqualified, key still works | "lies when accused" |
+| Too few qualified dealers: abort | "too many dealers are disqualified" |
+| Misrouted or cross-session replayed shares are rejected | "wrong recipient", "another DKG session" |
+| Malformed or equivocating commitments: disqualified | "equivocating commitments" |
+
+**Known DKG limitations:**
+
+- *Key bias.* Plain Joint-Feldman lets a dealer who waits for the others'
+  commitments bias the **distribution** of `Y`. It still can't learn `y`.
+  GJKR fixes this with Pedersen commitments in round 1, and only round 1
+  changes.
+- *Broadcast channel.* The protocol assumes everyone sees the same
+  broadcasts. In-process, that's trivially true. With remote validators,
+  broadcasts must be signed by their sender, and equivocation (two different
+  commitments from one dealer) is already treated as disqualifying.
+
 ## What is simulated, and what's next
 
 Being honest about the remaining gaps:
 
-1. **Trusted-dealer keygen.** One process generates `y` and splits it, so at
-   that moment it knows `y`. Production needs a distributed key generation
-   (Pedersen/Feldman DKG) so `y` never exists in one place.
-2. **Validators run in-process.** `SimulatedValidator` implements the
-   `ValidatorNode` interface, and all five live in the backend with their
-   shares in one dev-only file. The interface is async and per-validator,
-   so a remote validator (HTTP/gRPC client) can replace it without changing
-   the coordinator. Each real validator should also check the batch's
-   on-chain attestation before releasing shares.
-3. **The coordinator is the backend.** After combining shares, the backend
+1. **Validators run in-process.** This is now the main gap. The DKG means
+   no dealer ever knows `y`. But all five `SimulatedValidator`s live in the
+   backend process, and their key files sit on one disk, so whoever operates
+   that machine could still read `t` shares. The fix is to run each
+   validator on its own machine with its own operator. The `ValidatorNode`
+   interface (decryption *and* DKG rounds) is async and per-validator, so a
+   remote client can replace `SimulatedValidator` without changing the
+   coordinator or `runDkg`. Each real validator should also check the
+   batch's on-chain attestation before releasing shares.
+2. **The coordinator is the backend.** After combining shares, the backend
    sees the plaintext, but only for sealed batches. Moving combination
    on-chain or into the settlement transaction is future work.
+3. **DKG key bias** (see above): upgrade round 1 to Pedersen commitments.
 
 The [contributor issues](CONTRIBUTOR_ISSUES.md) track each of these.

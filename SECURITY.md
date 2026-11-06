@@ -16,7 +16,8 @@ In scope: the threshold encryption and share verification
 the Soroban contracts.
 
 Known, already-documented limitations, and therefore not new reports: the
-validator set is simulated in-process, and keygen uses a trusted dealer. See
+validators run in one process, and DKG uses Joint-Feldman, which allows
+bias of the group key's distribution but not its disclosure. See
 [docs/THRESHOLD_ENCRYPTION.md](docs/THRESHOLD_ENCRYPTION.md).
 
 ## Supply-chain hygiene
