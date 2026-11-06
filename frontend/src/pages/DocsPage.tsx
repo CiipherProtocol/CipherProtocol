@@ -34,11 +34,11 @@ export default function DocsPage() {
         ))}
       </div>
       <div className="mt-10 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-        <p className="mb-1 font-semibold">Still simulated</p>
+        <p className="mb-1 font-semibold">Not fully decentralized yet</p>
         <p>
-          The encryption, share verification, and distributed key generation are real. No dealer ever knows the
-          group key. But all validators currently run inside one backend process, so trust isn&apos;t truly
-          distributed until each runs on its own machine, which is the next step. See the{' '}
+          The encryption, share verification, distributed key generation, and separate validator processes are
+          real. But validators are still run by one party and still trust the backend about when a batch is sealed.
+          Next, validators will verify an on-chain commitment before decrypting. See the{' '}
           <a
             href="https://github.com/CiipherProtocol/CipherProtocol/blob/main/docs/THRESHOLD_ENCRYPTION.md"
             className="underline"
