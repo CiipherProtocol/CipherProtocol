@@ -17,6 +17,7 @@ export function createApp(): Express {
   app.use('/api/batches', routes.batches);
   app.use('/api/settlement', routes.settlement);
   app.use('/api/config', routes.config);
+  app.use('/api/auth', routes.auth);
 
   app.use(errorHandler);
   return app;

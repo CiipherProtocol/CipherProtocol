@@ -4,7 +4,6 @@ import {
   getPublicKey,
   signTransaction as freighterSignTransaction,
 } from '@stellar/freighter-api';
-import { STELLAR_NETWORK } from '../constants/config';
 
 export const walletService = {
   async isAvailable(): Promise<boolean> {
@@ -29,7 +28,7 @@ export const walletService = {
     }
   },
 
-  async signTransaction(xdr: string): Promise<string> {
-    return freighterSignTransaction(xdr, { networkPassphrase: STELLAR_NETWORK });
+  async signTransaction(xdr: string, networkPassphrase: string, accountToSign?: string): Promise<string> {
+    return freighterSignTransaction(xdr, { networkPassphrase, accountToSign });
   },
 };

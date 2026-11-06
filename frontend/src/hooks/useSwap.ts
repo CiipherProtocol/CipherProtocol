@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../services/api';
+import { authService } from '../services/auth';
 import { EncryptedOrderPayload, Order } from '../types/order';
 import { getErrorMessage } from '../utils/errors';
 
@@ -14,7 +15,7 @@ export const useSwap = () => {
     try {
       const { user, ...body } = orderData;
       const response = await api.post('/orders', body, {
-        headers: { 'x-user-address': user },
+        headers: await authService.authHeaders(user),
       });
       return response.data.order as Order;
     } catch (err: unknown) {

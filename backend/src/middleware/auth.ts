@@ -1,19 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
+import { authService } from '../services/authService';
 
 /**
- * PLACEHOLDER auth. Trusts the `x-user-address` header as-is — anyone can
- * claim any address. Real auth needs the client to sign a challenge with
- * their Stellar key (e.g. via Freighter's signAuthEntry) and this middleware
- * to verify that signature against the claimed address before trusting it.
+ * Requires `Authorization: Bearer <session token>`, obtained by signing a
+ * challenge with the wallet (POST /api/auth/challenge → /api/auth/verify).
+ * The address comes from the verified token — never from client input.
  */
 export function validateAuth(req: Request, res: Response, next: NextFunction) {
-  const address = req.header('x-user-address');
+  const header = req.header('authorization') ?? '';
+  const match = /^Bearer (\S+)$/.exec(header);
+  const session = match ? authService.verifySession(match[1]) : null;
 
-  if (!address) {
-    res.status(401).json({ error: 'Missing x-user-address header' });
+  if (!session) {
+    res.status(401).json({ error: 'Missing or invalid session; sign in with your wallet' });
     return;
   }
 
-  req.user = { address };
+  req.user = { address: session.address };
   next();
 }

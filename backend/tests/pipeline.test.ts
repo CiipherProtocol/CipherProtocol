@@ -8,7 +8,7 @@ import { generateKeySet } from '../src/crypto/threshold';
 import { batchingService } from '../src/services/batchingService';
 import { SimulatedValidator, setValidatorNetwork } from '../src/services/validatorNetwork';
 import { validatorService } from '../src/services/validatorService';
-import { newUser, submitSwap } from './helpers';
+import { authHeaders, newUser, submitSwap } from './helpers';
 
 const app = createApp();
 
@@ -132,7 +132,7 @@ describe('order intake validation', () => {
     await useNetwork(); // validator set re-keyed
     const again = await request(app)
       .post('/api/orders')
-      .set({ 'x-user-address': user.address })
+      .set(await authHeaders(app, user))
       .send({ encrypted_data: res.body.order.encrypted_data, threshold_pubkey: res.body.order.threshold_pubkey, nonce: 999 });
     expect(again.status).toBe(400);
     expect(again.body.error).toMatch(/threshold_pubkey/);
@@ -143,14 +143,14 @@ describe('order intake validation', () => {
     const { body: cfg } = await request(app).get('/api/config');
     const bad = await request(app)
       .post('/api/orders')
-      .set({ 'x-user-address': user.address })
+      .set(await authHeaders(app, user))
       .send({ encrypted_data: 'base64:not-real', threshold_pubkey: cfg.threshold_pubkey, nonce: 1 });
     expect(bad.status).toBe(400);
 
     const first = await submitSwap(app, user);
     const dup = await request(app)
       .post('/api/orders')
-      .set({ 'x-user-address': user.address })
+      .set(await authHeaders(app, user))
       .send({ encrypted_data: first.body.order.encrypted_data, threshold_pubkey: cfg.threshold_pubkey, nonce: first.body.order.nonce });
     expect(dup.status).toBe(409);
   });

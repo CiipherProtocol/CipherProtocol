@@ -19,6 +19,10 @@ export const config = {
    * with as admin. */
   backendSignerSecret: process.env.BACKEND_SIGNER_SECRET || '',
 
+  /** HMAC key for auth challenges and session tokens (≥ 32 chars). If unset,
+   * a random per-process key is used and sessions reset on restart. */
+  authTokenSecret: process.env.AUTH_TOKEN_SECRET || '',
+
   /** Token symbol -> Soroban contract address, until there's a real token
    * registry. Populated with testnet addresses for local/dev use. */
   tokenContracts: parseTokenContracts(process.env.TOKEN_CONTRACTS),
