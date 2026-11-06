@@ -8,6 +8,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "validator": "ts-node --transpile-only src/validator/main.ts",
+    "validators:dev": "ts-node --transpile-only src/validator/devCluster.ts",
+    "validator:start": "node dist/validator/main.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {

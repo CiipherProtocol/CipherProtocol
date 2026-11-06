@@ -1,6 +1,6 @@
 node_modules
 dist
 .env
-data/*.sqlite3
 *.local
-data/validators/
+# Local DB, validator key shares, identities and API tokens — never commit.
+data/

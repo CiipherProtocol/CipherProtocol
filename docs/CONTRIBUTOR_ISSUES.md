@@ -4,7 +4,8 @@ Point values follow Drips Wave's complexity bands (100/150/200). Each
 section is a ready-to-post issue body. See the commands at the bottom.
 
 **Already done:** threshold encryption, validator share coordination,
-distributed key generation (Joint-Feldman with complaints), signature auth,
+distributed key generation (Joint-Feldman with complaints), validators as
+separate processes with signed DKG messages, signature auth,
 backend and frontend test suites, and CI. See the root README's Status
 section.
 
@@ -26,31 +27,27 @@ All existing `dkg.test.ts` cases must still pass.
 
 ---
 
-### 2. Remote validator nodes (200)
+### 2. Validator deployment: Docker Compose + TLS (150)
 
-All validators are `SimulatedValidator` instances inside the backend
-process. The DKG removed the dealer, but co-located validators mean one
-operator could still collect `t` shares. Build a standalone validator service (one share per process) and a
-`RemoteValidator` client implementing the existing `ValidatorNode`
-interface in `backend/src/services/validatorNetwork.ts`.
+Validators already run as separate processes (`npm run validators:dev`),
+but only on one host over plain HTTP. Add a Docker Compose setup (one
+container and one volume per validator, plus the backend), and put the
+coordinator-to-validator transport behind TLS. Mutual TLS is a bonus.
 
-Both the decryption calls and the DKG rounds already go through that
-interface. Broadcasts need sender signatures once they cross the network.
-
-**Acceptance:** DKG runs across 5 validator processes, each persisting only
-its own share. The pipeline tests pass against them, and still pass with 2
-of them killed. The validator only releases
-shares for a batch whose `order-vault` attestation exists on-chain.
+**Acceptance:** `docker compose up` brings up 5 validators and the backend.
+The DKG completes, and an order settles. Stopping 2 validator containers
+doesn't stop settlement.
 
 ---
 
-### 3. Commit ciphertext hashes on-chain before decryption (150)
+### 3. Commit ciphertext hashes on-chain; validators verify before decrypting (200)
 
 `order-vault.create_batch` attests to a hash of order *IDs*. Make it commit
 to the hash of the ordered list of *ciphertexts*, so the batch contents and
 order are provably fixed before any validator releases a share. Then have
-`validatorService.coordinateDecryption` (and later issue #2's remote
-validators) check it.
+each validator (`src/validator/localValidator.ts#requestDecryptionShares`)
+check that commitment on-chain itself before contributing. This is the
+remaining place where validators trust the coordinator.
 
 **Scope:** contract change and tests in `contracts/order-vault`, plus the
 `sorobanService.createBatch` update.

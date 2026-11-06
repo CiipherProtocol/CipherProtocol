@@ -1,7 +1,7 @@
 # Threshold order encryption
 
 How Cipher Protocol keeps a swap order secret until the batch it belongs to
-is sealed, and what is still simulated.
+is sealed, and what is still trusted.
 
 ## Goal
 
@@ -102,26 +102,57 @@ to `dkg-transcript.json` for audit.
   GJKR fixes this with Pedersen commitments in round 1, and only round 1
   changes.
 - *Broadcast channel.* The protocol assumes everyone sees the same
-  broadcasts. In-process, that's trivially true. With remote validators,
-  broadcasts must be signed by their sender, and equivocation (two different
-  commitments from one dealer) is already treated as disqualifying.
+  broadcasts, but the coordinator relaying them could show validators
+  different views. Each validator signs its final result together with a
+  hash of the transcript it verified, and the coordinator aborts unless all
+  of them match. A coordinator that lies anyway can only produce
+  inconsistent keys (an availability failure). It can't extract `y`.
 
-## What is simulated, and what's next
+## Validators as separate processes
+
+Each validator can run as its own OS process (`src/validator/main.ts`),
+holding its own key share and an ed25519 **identity key**. The backend
+reaches validators over HTTP through `RemoteValidator`, which implements the
+same `ValidatorNode` interface as the in-process `LocalValidator`. Run
+`npm run validators:dev` to start 5 such processes.
+
+Once messages cross a network, the coordinator routing them is treated as
+**hostile**. Each attack below is blocked, and `dkgAdversarial.test.ts`
+covers it:
+
+| Coordinator attack | Defence |
+|---|---|
+| Swap a validator's DKG transport key for its own, to read the shares sent to it | Transport keys are signed by the validator's identity key. Dealers refuse to deal if any key is missing or forged. |
+| Forge complaints so dealers publicly reveal shares | Complaints must be signed by the complainer. Unsigned ones are ignored. |
+| Drop shares so the victim complains and the reveal leaks its share | A *missing* share aborts the DKG instead of producing a complaint, so dropping messages only stalls it. |
+| Alter or forge broadcasts | Broadcasts are signed. Altered ones are dropped identically by every validator. |
+| Replay messages from an earlier DKG | Every signed payload carries the session id. |
+| Re-key validators that already hold a share | Validators refuse to start a new DKG while holding a key. |
+| Ask validators for decryption shares directly | Every validator route requires the coordinator's bearer token. |
+
+Verified end to end: 5 separate validator processes ran the DKG over HTTP
+and an order was submitted, decrypted and settled. After 2 processes were
+killed and the backend restarted, it reused the same key and still settled.
+`remoteValidators.test.ts` covers the same flows in CI.
+
+## What is still trusted, and what's next
 
 Being honest about the remaining gaps:
 
-1. **Validators run in-process.** This is now the main gap. The DKG means
-   no dealer ever knows `y`. But all five `SimulatedValidator`s live in the
-   backend process, and their key files sit on one disk, so whoever operates
-   that machine could still read `t` shares. The fix is to run each
-   validator on its own machine with its own operator. The `ValidatorNode`
-   interface (decryption *and* DKG rounds) is async and per-validator, so a
-   remote client can replace `SimulatedValidator` without changing the
-   coordinator or `runDkg`. Each real validator should also check the
-   batch's on-chain attestation before releasing shares.
-2. **The coordinator is the backend.** After combining shares, the backend
+1. **Validators release shares whenever the coordinator asks.** They
+   authenticate the coordinator, but they don't yet check on their own that
+   a batch was sealed on-chain before contributing. A malicious backend
+   holding the API tokens could therefore request early decryption. The fix
+   is for validators to verify the `order-vault` commitment to the batch's
+   ciphertexts (contributor issue #3) before releasing anything.
+2. **Independent operators.** The code supports one validator per machine,
+   but the dev cluster runs all of them on one host, and the default dev
+   mode keeps them in-process. Real decentralization means deploying
+   validators run by different parties. Their HTTP transport should then
+   sit behind TLS.
+3. **The coordinator is the backend.** After combining shares, the backend
    sees the plaintext, but only for sealed batches. Moving combination
    on-chain or into the settlement transaction is future work.
-3. **DKG key bias** (see above): upgrade round 1 to Pedersen commitments.
+4. **DKG key bias** (see above): upgrade round 1 to Pedersen commitments.
 
 The [contributor issues](CONTRIBUTOR_ISSUES.md) track each of these.
