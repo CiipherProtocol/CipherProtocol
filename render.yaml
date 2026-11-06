@@ -1,0 +1,46 @@
+# Render Blueprint — public testnet demo (see docs/DEPLOY.md).
+# Dashboard → New → Blueprint → pick this repo. Render prompts for the
+# `sync: false` values.
+services:
+  # API + coordinator, with the 5 validators in-process (free tier has no
+  # private network for separate validator services; use docker-compose.yml
+  # for the multi-container setup). Free instances have no persistent disk,
+  # so a restart re-runs the DKG and starts with an empty order book.
+  - type: web
+    name: cipher-protocol-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"
+      - key: AUTH_TOKEN_SECRET
+        generateValue: true
+      - key: BATCH_TIMEOUT_MS
+        value: "10000"
+      - key: VALIDATOR_KEY_DIR
+        value: /app/data/validators
+      # Seal batches on Stellar testnet (recommended). Both must be set
+      # together: the contract id and the secret of the admin it was
+      # initialized with. Leave both empty to use the in-memory dev ledger.
+      - key: ORDER_VAULT_CONTRACT
+        sync: false
+      - key: BACKEND_SIGNER_SECRET
+        sync: false
+
+  - type: web
+    name: cipher-protocol-app
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # The API's public URL + /api, e.g. https://cipher-protocol-api.onrender.com/api
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -23,6 +23,13 @@ export const config = {
    * a random per-process key is used and sessions reset on restart. */
   authTokenSecret: process.env.AUTH_TOKEN_SECRET || '',
 
+  /** Number of reverse-proxy hops to trust for the client IP (e.g. 1 on
+   * Render/Fly/Railway). 0 = use the socket address. */
+  trustProxy: Number(process.env.TRUST_PROXY) || 0,
+  /** Per-IP limits for public endpoints (per minute). */
+  rateLimitAuthPerMin: Number(process.env.RATE_LIMIT_AUTH_PER_MIN) || 30,
+  rateLimitOrdersPerMin: Number(process.env.RATE_LIMIT_ORDERS_PER_MIN) || 20,
+
   /** Token symbol -> Soroban contract address, until there's a real token
    * registry. Populated with testnet addresses for local/dev use. */
   tokenContracts: parseTokenContracts(process.env.TOKEN_CONTRACTS),

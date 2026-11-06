@@ -17,6 +17,22 @@ See [Status](#status) before trusting this with real funds.
 
 [![CI](https://github.com/CiipherProtocol/CipherProtocol/actions/workflows/ci.yml/badge.svg)](https://github.com/CiipherProtocol/CipherProtocol/actions/workflows/ci.yml)
 
+## Try it
+
+**Live demo:** _link coming soon_ (Stellar testnet). No wallet extension
+needed: click **Try demo wallet** for a throwaway key in your tab, or connect
+Freighter. A banner shows exactly what's on-chain and what's simulated.
+
+**Run the whole system locally**, with 5 validators in separate containers:
+
+```bash
+docker compose up --build      # then open http://localhost:8080
+docker compose stop validator-2 validator-4   # still works: 3 of 5 suffice
+```
+
+Hosting on Render, Vercel or Netlify, and enabling on-chain sealing, are
+covered in [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ## Architecture
 
 ```
@@ -85,9 +101,13 @@ What's real and tested:
   from Soroban itself and refuses to decrypt anything that doesn't match, so
   a pending order can't be decrypted early, even by the backend. The batch
   monitor links each batch to its sealing transaction.
-- **Tests and CI**: 70 backend tests (crypto, DKG, malicious coordinator,
+- **Deployable demo**: Docker Compose stack (each validator container mounts
+  only its own key), a Render blueprint, a demo wallet for reviewers without
+  Freighter, per-IP rate limiting, and an in-app banner that reports which
+  parts run on-chain and which are simulated.
+- **Tests and CI**: 73 backend tests (crypto, DKG, malicious coordinator,
   remote validators, batch sealing, end-to-end pipeline, auth),
-  8 frontend tests, and the contract suites. They run on every PR, together
+  11 frontend tests, the contract suites, and a Docker image build. They run on every PR, together
   with a source-integrity check that blocks hidden or obfuscated code.
 
 What's **not** real yet:

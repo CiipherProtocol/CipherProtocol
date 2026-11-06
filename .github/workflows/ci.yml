@@ -64,3 +64,10 @@ jobs:
         with:
           workspaces: contracts
       - run: cargo test --locked
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build

@@ -2,13 +2,23 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { orderController } from '../controllers/orderController';
 import { validateAuth } from '../middleware/auth';
 import { validateOrderInput } from '../middleware/validation';
+import { rateLimit } from '../middleware/rateLimit';
+import { config } from '../config';
 import { SubmitOrderBody } from '../types/order';
 
 const router = Router();
 
+const submitLimit = rateLimit({
+  name: 'order',
+  windowMs: 60_000,
+  max: config.rateLimitOrdersPerMin,
+  key: (req) => `${req.ip}|${req.user?.address ?? ''}`,
+});
+
 router.post(
   '/',
   validateAuth,
+  submitLimit,
   validateOrderInput,
   async (req: Request<unknown, unknown, SubmitOrderBody>, res: Response, next: NextFunction) => {
     try {

@@ -6,6 +6,7 @@ import { sorobanService } from '../services/sorobanService';
 import { validatorService } from '../services/validatorService';
 import { AppError, NotFoundError } from '../utils/errors';
 import logger from '../utils/logger';
+import { config } from '../config';
 
 export const settlementController = {
   async getSettlementResults(batchId: string) {
@@ -47,7 +48,12 @@ export const settlementController = {
       await Promise.all([
         ...decrypted.map((d, i) =>
           Order.update(
-            { ...d.order, amount_out: results[i]?.amount_out ?? null, status: 'settled' },
+            {
+              ...d.order,
+              // Simulated settlement moves no tokens, so there is no real amount_out to record.
+              amount_out: config.settlementEngineContract ? (results[i]?.amount_out ?? null) : null,
+              status: 'settled',
+            },
             { where: { id: d.id } }
           )
         ),
