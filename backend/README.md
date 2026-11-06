@@ -30,8 +30,10 @@ two contracts (see `contracts/README.md`) — every on-chain call the backend
 makes (batch attestations, settlement, fee collection) is signed by it.
 **Never commit this value** — `.env` is gitignored for exactly this reason.
 
-On first start the backend generates a simulated 3-of-5 validator key set
-in `data/validator-keys.json` (gitignored). Set `AUTH_TOKEN_SECRET` (≥ 32
+On first start the 5 simulated validators run a distributed key generation
+for a 3-of-5 key. No dealer is involved, and each validator writes only its
+own share to `data/validators/validator-<i>.json` (gitignored), next to the
+public `dkg-transcript.json`. Delete that directory to re-key. Set `AUTH_TOKEN_SECRET` (≥ 32
 chars, e.g. `openssl rand -hex 32`) so sessions survive restarts. To watch
 the DLEQ proofs reject bad validators, set `BYZANTINE_VALIDATORS=2,4`. With
 3-of-5, orders still settle, and with three bad validators they fail cleanly.
