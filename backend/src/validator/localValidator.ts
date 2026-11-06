@@ -5,6 +5,7 @@ import { parseCiphertext } from '../crypto/orderCipher';
 import { DecryptionShare, KeyShare, Point, partialDecrypt } from '../crypto/threshold';
 import { DkgFaults, DkgParticipant, DkgTranscript } from '../crypto/dkg';
 import { Identity, Signed, canonicalJson, signPayload, verifySigned } from '../crypto/signing';
+import { CommitmentLedger, assertBatchSealed } from '../chain/batchCommitment';
 import {
   DOMAIN,
   DkgResultStatement,
@@ -36,6 +37,12 @@ export interface LocalValidatorOptions {
   dkgFaults?: DkgFaults;
   /** Persist this validator's own share here after DKG ('' = memory only). */
   keyFile?: string;
+  /**
+   * Where to check that a batch is sealed on-chain before decrypting it.
+   * There is deliberately no silent default: without a ledger the validator
+   * refuses to decrypt. 'insecure-skip' must be chosen explicitly.
+   */
+  commitments?: CommitmentLedger | 'insecure-skip';
 }
 
 /**
@@ -72,15 +79,33 @@ export class LocalValidator implements ValidatorNode {
       index: this.index,
       identityKey: this.opts.identity.publicKey,
       hasKey: !!this.keyShare,
+      commitmentCheck: this.commitmentCheck(),
       threshold: this.keyInfo?.threshold,
       groupPublicKey: this.keyInfo?.groupPublicKey,
       verificationKeys: this.keyInfo?.verificationKeys,
     };
   }
 
-  async requestDecryptionShares(_batchId: string, ciphertexts: string[]): Promise<DecryptionShare[]> {
+  private commitmentCheck(): ValidatorInfo['commitmentCheck'] {
+    const c = this.opts.commitments;
+    return !c ? 'unconfigured' : c === 'insecure-skip' ? 'disabled' : c.kind;
+  }
+
+  /**
+   * Releases this validator's shares for a batch — but only after checking,
+   * independently of the coordinator, that exactly these ciphertexts in
+   * exactly this order were sealed on-chain under `batchId`. A coordinator
+   * can't decrypt a pending order early, or slip one into a sealed batch.
+   */
+  async requestDecryptionShares(batchId: string, ciphertexts: string[]): Promise<DecryptionShare[]> {
     const keyShare = this.keyShare;
     if (!keyShare) throw new Error(`${this.address} has no key share`);
+    if (!Array.isArray(ciphertexts) || ciphertexts.some((c) => typeof c !== 'string')) {
+      throw new Error('ciphertexts must be an array of strings');
+    }
+    const ledger = this.opts.commitments;
+    if (!ledger) throw new Error(`${this.address} has no commitment ledger configured; refusing to decrypt`);
+    if (ledger !== 'insecure-skip') await assertBatchSealed(ledger, batchId, ciphertexts);
     return ciphertexts.map((ct) => {
       const share = partialDecrypt(keyShare, parseCiphertext(ct).R);
       // A byzantine validator substitutes a valid-looking point that is not

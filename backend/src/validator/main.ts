@@ -7,11 +7,19 @@
  *   VALIDATOR_KEY_DIR     where this validator keeps identity.json and its share
  *   VALIDATOR_API_TOKEN   bearer token the coordinator must present (≥ 32 chars)
  *   VALIDATOR_PEER_KEYS   identity public keys of all validators: "1:hex,2:hex,…"
+ *
+ * Batch-sealing check (required — the validator refuses to decrypt without one):
+ *   VALIDATOR_ORDER_VAULT_CONTRACT   order-vault contract id to read commitments from
+ *   VALIDATOR_SOROBAN_RPC_URL        (default https://soroban-testnet.stellar.org)
+ *   VALIDATOR_NETWORK_PASSPHRASE     (default testnet)
+ * or, for local development only:
+ *   VALIDATOR_INSECURE_SKIP_COMMITMENT_CHECK=1
  */
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { Identity, generateIdentity, publicKeyOf } from '../crypto/signing';
+import { CommitmentLedger, SorobanCommitmentLedger } from '../chain/batchCommitment';
 import { LocalValidator, PersistedValidatorKey } from './localValidator';
 import { createValidatorApp } from './server';
 
@@ -50,6 +58,25 @@ export function loadOrCreateIdentity(keyDir: string): Identity {
   return identity;
 }
 
+function commitmentLedgerFromEnv(): CommitmentLedger | 'insecure-skip' {
+  const contract = process.env.VALIDATOR_ORDER_VAULT_CONTRACT;
+  if (contract) {
+    return new SorobanCommitmentLedger(
+      contract,
+      process.env.VALIDATOR_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015',
+      process.env.VALIDATOR_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org'
+    );
+  }
+  if (process.env.VALIDATOR_INSECURE_SKIP_COMMITMENT_CHECK === '1') {
+    console.warn(
+      'WARNING: VALIDATOR_INSECURE_SKIP_COMMITMENT_CHECK=1 — this validator will release shares without ' +
+        'checking that batches are sealed on-chain. Development only.'
+    );
+    return 'insecure-skip';
+  }
+  throw new Error('set VALIDATOR_ORDER_VAULT_CONTRACT (or VALIDATOR_INSECURE_SKIP_COMMITMENT_CHECK=1 for local dev)');
+}
+
 export function startValidator() {
   const index = Number(required('VALIDATOR_INDEX'));
   const keyDir = required('VALIDATOR_KEY_DIR');
@@ -58,7 +85,7 @@ export function startValidator() {
   const identity = loadOrCreateIdentity(keyDir);
   const peers = parsePeerKeys(required('VALIDATOR_PEER_KEYS'));
   const keyFile = path.join(keyDir, `validator-${index}.json`);
-  const opts = { identity, peers, keyFile };
+  const opts = { identity, peers, keyFile, commitments: commitmentLedgerFromEnv() };
 
   const validator = fs.existsSync(keyFile)
     ? LocalValidator.fromPersisted(JSON.parse(fs.readFileSync(keyFile, 'utf8')) as PersistedValidatorKey, opts)
@@ -68,7 +95,8 @@ export function startValidator() {
   app.listen(port, host, () => {
     console.log(
       `validator ${index} listening on http://${host}:${port} ` +
-        `(identity ${identity.publicKey.slice(0, 16)}…, ${fs.existsSync(keyFile) ? 'key share loaded' : 'awaiting DKG'})`
+        `(identity ${identity.publicKey.slice(0, 16)}…, ${fs.existsSync(keyFile) ? 'key share loaded' : 'awaiting DKG'}, ` +
+        `sealing check: ${opts.commitments === 'insecure-skip' ? 'DISABLED' : 'on-chain'})`
     );
   });
 }

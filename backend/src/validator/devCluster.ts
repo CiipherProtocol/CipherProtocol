@@ -10,12 +10,15 @@
  * with VALIDATOR_CLUSTER_FILE=data/cluster/cluster.json. The first backend
  * start runs the DKG over HTTP; later starts reuse the shares.
  */
+import dotenv from 'dotenv';
 import { ChildProcess, spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { loadOrCreateIdentity } from './main';
 import { ClusterFile } from './remoteValidator';
+
+dotenv.config();
 
 const root = path.join(__dirname, '..', '..', 'data', 'cluster');
 const count = Number(process.env.VALIDATOR_COUNT) || 5;
@@ -45,6 +48,19 @@ fs.mkdirSync(root, { recursive: true });
 fs.writeFileSync(clusterPath, JSON.stringify(cluster, null, 2), { mode: 0o600 });
 
 const peerKeys = members.map((m) => `${m.index}:${m.identity.publicKey}`).join(',');
+
+// Validators verify batch sealing on-chain when a contract is configured.
+// Without one there is no shared chain to read, so the check is disabled.
+const sealing: Record<string, string> = process.env.ORDER_VAULT_CONTRACT
+  ? {
+      VALIDATOR_ORDER_VAULT_CONTRACT: process.env.ORDER_VAULT_CONTRACT,
+      VALIDATOR_SOROBAN_RPC_URL: process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org',
+      VALIDATOR_NETWORK_PASSPHRASE: process.env.STELLAR_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015',
+    }
+  : { VALIDATOR_INSECURE_SKIP_COMMITMENT_CHECK: '1' };
+if (!process.env.ORDER_VAULT_CONTRACT) {
+  console.warn('ORDER_VAULT_CONTRACT not set: validators will NOT verify batch sealing on-chain (dev only).');
+}
 // Works both from source (ts-node) and from the compiled dist/ build.
 const runningTs = path.extname(__filename) === '.ts';
 const entry = path.join(__dirname, `main${path.extname(__filename)}`);
@@ -59,6 +75,7 @@ const children: ChildProcess[] = members.map((m) =>
       VALIDATOR_KEY_DIR: m.keyDir,
       VALIDATOR_API_TOKEN: m.apiToken,
       VALIDATOR_PEER_KEYS: peerKeys,
+      ...sealing,
     },
   })
 );

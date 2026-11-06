@@ -16,6 +16,7 @@ import { RemoteValidator } from '../src/validator/remoteValidator';
 import { connectRemoteNetwork, setValidatorNetwork } from '../src/services/validatorNetwork';
 import { validatorService } from '../src/services/validatorService';
 import { batchingService } from '../src/services/batchingService';
+import { devCommitmentLedger } from '../src/chain/batchCommitment';
 import { newUser, submitSwap } from './helpers';
 
 /**
@@ -40,6 +41,8 @@ function startValidator(k: number): Promise<Server> {
     identity: ids[k],
     peers,
     keyFile: path.join(keyDir(index), `validator-${index}.json`),
+    // Stands in for the chain: the backend seals into it, validators read it.
+    commitments: devCommitmentLedger,
   });
   return new Promise((resolve) => {
     const s = createValidatorApp(validator, tokens[k]).listen(0, '127.0.0.1', () => resolve(s));
@@ -99,6 +102,17 @@ describe('validators as separate network services', () => {
   it('a restarted coordinator reuses the existing key instead of re-keying', async () => {
     const net = await connectRemoteNetwork(clusterFile, T);
     expect(net.groupPublicKey).toBe(groupKey);
+  });
+
+  it('validators refuse shares for an order that was never sealed in a batch', async () => {
+    const res = await submitSwap(app, newUser());
+    const order = (await Order.findByPk(res.body.order.id))!;
+    // A coordinator holding every API token tries to decrypt a pending order early.
+    const [outcome] = await validatorService.coordinateDecryption(crypto.randomUUID(), [order]);
+    expect(outcome.ok).toBe(false);
+    expect((await Order.findByPk(order.id))!.status).toBe('pending');
+    await batchingService.runOnce(); // the honest path still works afterwards
+    expect((await Order.findByPk(order.id))!.status).toBe('settled');
   });
 
   it('rejects callers without the validator API token', async () => {

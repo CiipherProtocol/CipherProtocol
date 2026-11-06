@@ -3,6 +3,8 @@ import { useBatches } from '../../hooks/useBatches';
 import { formatTimestamp } from '../../utils/formatting';
 import Loading from '../common/Loading';
 import BatchStats from './BatchStats';
+import { Batch } from '../../types/batch';
+import { STELLAR_EXPLORER_TX_URL } from '../../constants/config';
 
 const STATUS_TEXT_CLASSES: Record<string, string> = {
   settled: 'text-green-600 dark:text-green-400',
@@ -10,6 +12,29 @@ const STATUS_TEXT_CLASSES: Record<string, string> = {
   created: 'text-gray-600 dark:text-gray-400',
   failed: 'text-red-600 dark:text-red-400',
 };
+
+/** Shows the on-chain commitment that sealed this batch before any validator would decrypt it. */
+function BatchSeal({ batch }: { batch: Batch }) {
+  if (!batch.content_hash) return null;
+  const short = `${batch.content_hash.slice(0, 10)}…`;
+  return (
+    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400" title={batch.content_hash}>
+      🔏 Sealed:{' '}
+      {batch.commitment_tx ? (
+        <a
+          href={`${STELLAR_EXPLORER_TX_URL}${batch.commitment_tx}`}
+          target="_blank"
+          rel="noreferrer"
+          className="font-mono underline"
+        >
+          {short}
+        </a>
+      ) : (
+        <span className="font-mono">{short} (local dev ledger)</span>
+      )}
+    </p>
+  );
+}
 
 export default function BatchMonitor() {
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -46,6 +71,7 @@ export default function BatchMonitor() {
                     <div>
                       <p className="font-semibold">{batch.id.slice(0, 8)}...</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{batch.order_ids.length} orders</p>
+                      <BatchSeal batch={batch} />
                     </div>
                     <div className="text-right">
                       <p

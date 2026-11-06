@@ -16,15 +16,21 @@ export const batchController = {
       throw new AppError('Some orders not found or not pending');
     }
     orderIds = uniqueIds;
+    const byId = new Map(orders.map((o) => [o.id, o]));
+    const ciphertexts = orderIds.map((id) => byId.get(id)!.encrypted_data);
+
+    // Seal on-chain first: once this succeeds the batch's contents and order
+    // are fixed publicly, and only then can validators be asked to decrypt.
+    const id = crypto.randomUUID();
+    const { contentHash, txHash } = await sorobanService.createBatch(id, ciphertexts);
 
     const batch = await Batch.create({
-      id: crypto.randomUUID(),
+      id,
       order_ids: orderIds,
       status: 'created',
+      content_hash: contentHash,
+      commitment_tx: txHash,
     });
-
-    await sorobanService.createBatch(batch.id, orderIds);
-
     await Order.update({ status: 'batched', batch_id: batch.id }, { where: { id: orderIds } });
 
     return batch;

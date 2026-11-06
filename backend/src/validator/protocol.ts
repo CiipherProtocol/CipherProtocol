@@ -41,6 +41,8 @@ export interface ValidatorInfo {
   index: number;
   identityKey: string;
   hasKey: boolean;
+  /** How this validator verifies batch sealing before decrypting. */
+  commitmentCheck?: 'soroban' | 'dev-in-memory' | 'disabled' | 'unconfigured';
   threshold?: number;
   groupPublicKey?: string;
   verificationKeys?: Record<number, string>;
