@@ -41,8 +41,9 @@ User submits a swap
      (ElGamal KEM on ristretto255 + AES-256-GCM, bound to the user's address)
   -> POST /api/orders carries ciphertext only; the backend stores it with no plaintext
   -> batching loop seals pending orders into a batch
-  -> order-vault.create_batch attests to the batch on-chain
-  -> validators each return y_i*R plus a DLEQ proof; bad shares are discarded
+  -> order-vault.create_batch seals it on-chain: sha256 over its ordered ciphertexts
+  -> each validator reads that seal from Soroban itself, then returns y_i*R plus a
+     DLEQ proof, refusing if the ciphertexts don't match; bad shares are discarded
   -> any t valid shares combine to decrypt; each payload is validated
   -> settlement-engine.settle_batch executes the swaps atomically against its AMM pool
   -> orders revealed and marked settled (or failed, with a reason)
@@ -78,25 +79,30 @@ What's real and tested:
   The coordinator is treated as hostile: every DKG message is signed, and
   share-harvesting tricks abort the DKG instead of leaking. Run
   `npm run validators:dev` for a 5-process cluster.
-- **Tests and CI**: 55 backend tests (crypto, DKG, malicious coordinator,
-  remote validators, end-to-end pipeline, auth),
+- **On-chain batch sealing, verified by validators**
+  (`backend/src/chain/`): each batch's ordered ciphertexts are committed to
+  `order-vault` before decryption. Every validator reads that commitment
+  from Soroban itself and refuses to decrypt anything that doesn't match, so
+  a pending order can't be decrypted early, even by the backend. The batch
+  monitor links each batch to its sealing transaction.
+- **Tests and CI**: 70 backend tests (crypto, DKG, malicious coordinator,
+  remote validators, batch sealing, end-to-end pipeline, auth),
   8 frontend tests, and the contract suites. They run on every PR, together
   with a source-integrity check that blocks hidden or obfuscated code.
 
 What's **not** real yet:
 
-- **Validators trust the coordinator about *when* to decrypt.** They
-  authenticate it, but they don't yet check on-chain that a batch is sealed
-  before releasing shares. Next step: commit ciphertext hashes on-chain and
-  have validators verify them.
+- **The backend still chooses batch composition.** It can't decrypt
+  without sealing publicly first, but it could censor orders or seal tiny
+  batches. Validators don't enforce a batch policy yet, and `settle_batch`
+  doesn't yet cross-check the seal.
 - **No independent operators yet.** Validators can run on separate
   machines, but today they're run by one party (in-process by default, or
   `validators:dev` on one host). See
   [the design doc](docs/THRESHOLD_ENCRYPTION.md#what-is-still-trusted-and-whats-next).
-- **The on-chain vault is an attestation, not a ledger of orders.**
-  `order-vault.create_batch` records an admin-signed hash and count. The
-  backend database is still the mempool, and it doesn't yet commit to
-  ciphertext hashes on-chain.
+- **The on-chain vault records sealed batches, not individual orders.**
+  The backend database is still the mempool. Users can't yet submit orders
+  directly on-chain.
 - **Schema setup uses `sequelize.sync`** rather than real migrations.
 
 ## Deployed contracts (Stellar testnet)

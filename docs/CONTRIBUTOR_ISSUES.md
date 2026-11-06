@@ -5,7 +5,8 @@ section is a ready-to-post issue body. See the commands at the bottom.
 
 **Already done:** threshold encryption, validator share coordination,
 distributed key generation (Joint-Feldman with complaints), validators as
-separate processes with signed DKG messages, signature auth,
+separate processes with signed DKG messages, on-chain batch sealing
+verified by every validator, signature auth,
 backend and frontend test suites, and CI. See the root README's Status
 section.
 
@@ -40,17 +41,27 @@ doesn't stop settlement.
 
 ---
 
-### 3. Commit ciphertext hashes on-chain; validators verify before decrypting (200)
+### 3. Validators enforce a batch policy before decrypting (150)
 
-`order-vault.create_batch` attests to a hash of order *IDs*. Make it commit
-to the hash of the ordered list of *ciphertexts*, so the batch contents and
-order are provably fixed before any validator releases a share. Then have
-each validator (`src/validator/localValidator.ts#requestDecryptionShares`)
-check that commitment on-chain itself before contributing. This is the
-remaining place where validators trust the coordinator.
+Validators already refuse to decrypt anything not sealed on-chain
+(`src/chain/batchCommitment.ts#assertBatchSealed`). But the coordinator
+still chooses what goes into a batch, and it could seal a batch of one to
+single out an order. Add a validator-side policy, checked against the
+on-chain record: a minimum order count *or* a minimum age since the last
+sealed batch. Make it configurable per validator.
 
-**Scope:** contract change and tests in `contracts/order-vault`, plus the
-`sorobanService.createBatch` update.
+**Acceptance:** tests show a 1-order batch is refused while the policy is
+unmet and accepted once the age threshold passes, with no change to the
+honest pipeline.
+
+---
+
+### 3b. Bind settlement to the on-chain seal (150)
+
+`settlement-engine.settle_batch` doesn't check `order-vault`. Make it read
+`order-vault.get_batch(batch_id)` (cross-contract call) and reject settling
+a batch that wasn't sealed, or whose order count doesn't match. Add contract
+tests for both rejections and for the happy path.
 
 ---
 

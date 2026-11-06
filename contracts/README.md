@@ -62,9 +62,11 @@ Currently deployed testnet instances are listed in the root
 
 ## Design notes
 
-- `order-vault.create_batch` records an **admin-attested** batch (order
-  count + content hash), not a copy of the orders themselves — see the root
-  README's Status section for why. `submit_order`/`get_pending_orders` exist
+- `order-vault.create_batch` **seals** a batch: order count plus
+  `content_hash`, a sha256 commitment to the batch's ciphertexts in
+  settlement order (see `backend/src/chain/batchCommitment.ts`). Validators
+  read it back with `get_batch` and refuse to decrypt anything that doesn't
+  match. It records a commitment, not a copy of the orders. `submit_order`/`get_pending_orders` exist
   for a possible future direct-submission path but aren't wired to anything
   yet.
 - `settlement-engine` combines settlement, the AMM liquidity pool, and fee

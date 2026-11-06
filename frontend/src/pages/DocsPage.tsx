@@ -5,19 +5,29 @@ const SECTIONS = [
   },
   {
     title: '2. Submit an encrypted order',
-    body: 'Your swap is encrypted in the browser to the validator set’s threshold public key (ElGamal on ristretto255 + AES-256-GCM) and bound to your address. The server only ever receives ciphertext.',
+    body:
+      'Your swap is encrypted in the browser to the validator set’s threshold public key (ElGamal on ristretto255 + AES-256-GCM) and bound to your address. ' +
+      'The server only ever receives ciphertext.',
   },
   {
     title: '3. Batching',
-    body: 'Pending orders are sealed into a batch in arrival order, and an attestation (order count + content hash) is recorded on-chain through the order-vault contract. Once a batch is sealed, its contents and order can’t change.',
+    body:
+      'Pending orders are sealed into a batch in arrival order: a hash of the batch’s encrypted orders, in order, is recorded on-chain in the order-vault contract. ' +
+      'Once sealed, a batch’s contents and order can’t change, and the Batches page links to the sealing transaction.',
   },
   {
     title: '4. Threshold decryption',
-    body: 'The validators generated the encryption key together (distributed key generation), so no one ever held the whole key. Only after sealing does each validator compute a decryption share with a zero-knowledge proof that it’s correct. Any t of n valid shares decrypt the batch. Fewer reveal nothing, and invalid shares are detected and discarded.',
+    body:
+      'The validators generated the encryption key together (distributed key generation), so no one ever held the whole key. ' +
+      'Each validator reads the batch’s seal from the chain itself and refuses to decrypt anything that doesn’t match it, so not even the server can open an order early. ' +
+      'Only then does each validator compute a decryption share with a zero-knowledge proof that it’s correct. ' +
+      'Any t of n valid shares decrypt the batch. Fewer reveal nothing, and invalid shares are detected and discarded.',
   },
   {
     title: '5. Atomic settlement',
-    body: 'Decrypted orders are executed together by the settlement-engine contract against its AMM liquidity pool. All orders in a batch settle together or not at all. Live on Stellar testnet with real token transfers.',
+    body:
+      'Decrypted orders are executed together by the settlement-engine contract against its AMM liquidity pool. ' +
+      'All orders in a batch settle together or not at all. Live on Stellar testnet with real token transfers.',
   },
 ];
 
@@ -36,9 +46,9 @@ export default function DocsPage() {
       <div className="mt-10 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
         <p className="mb-1 font-semibold">Not fully decentralized yet</p>
         <p>
-          The encryption, share verification, distributed key generation, and separate validator processes are
-          real. But validators are still run by one party and still trust the backend about when a batch is sealed.
-          Next, validators will verify an on-chain commitment before decrypting. See the{' '}
+          The encryption, share verification, distributed key generation, separate validator processes, and on-chain
+          batch sealing are real. But validators are still run by one party, and the server still decides which
+          orders go into each batch. See the{' '}
           <a
             href="https://github.com/CiipherProtocol/CipherProtocol/blob/main/docs/THRESHOLD_ENCRYPTION.md"
             className="underline"

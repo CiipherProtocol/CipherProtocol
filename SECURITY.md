@@ -16,8 +16,9 @@ In scope: the threshold encryption and share verification
 the Soroban contracts.
 
 Known, already-documented limitations, and therefore not new reports: the
-validators don't yet verify on-chain that a batch is sealed before
-releasing shares; they're run by one party; and DKG uses Joint-Feldman,
+the coordinator chooses batch composition, and validators don't yet
+enforce a batch policy; settlement isn't yet bound to the on-chain seal;
+validators are run by one party; and DKG uses Joint-Feldman,
 which allows bias of the group key's distribution but not its disclosure. See
 [docs/THRESHOLD_ENCRYPTION.md](docs/THRESHOLD_ENCRYPTION.md).
 
