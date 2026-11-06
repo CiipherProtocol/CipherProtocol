@@ -31,7 +31,11 @@ export const settlementController = {
     if (claimed === 0) throw new AppError('Batch already settled or settling', 409);
 
     try {
-      const orders = await Order.findAll({ where: { id: batch.order_ids } });
+      // Keep the sealed order: validators recompute the on-chain commitment
+      // over the ciphertexts exactly as listed.
+      const rows = await Order.findAll({ where: { id: batch.order_ids } });
+      const byId = new Map(rows.map((o) => [o.id, o]));
+      const orders = batch.order_ids.map((id) => byId.get(id)).filter((o): o is Order => !!o);
       const outcomes = await validatorService.coordinateDecryption(batchId, orders);
       const decrypted = outcomes.flatMap((o) => (o.ok ? [{ id: o.orderId, order: o.order }] : []));
 

@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import {
   Address,
   BASE_FEE,
@@ -11,6 +10,7 @@ import {
   xdr,
 } from '@stellar/stellar-sdk';
 import { config } from '../config';
+import { batchCommitment, batchIdToScVal, devCommitmentLedger } from '../chain/batchCommitment';
 import { DecryptedOrder } from '../types/order';
 import { SettlementResult } from '../types/settlement';
 import { AppError } from '../utils/errors';
@@ -47,14 +47,6 @@ function scMap(fields: Record<string, xdr.ScVal>): xdr.ScVal {
   return xdr.ScVal.scvMap(entries);
 }
 
-function batchIdToScVal(batchId: string): xdr.ScVal {
-  const hex = batchId.replace(/-/g, '');
-  if (hex.length !== 32) {
-    throw new AppError(`batch id "${batchId}" is not a UUID (expected 16 bytes)`, 500);
-  }
-  return nativeToScVal(Buffer.from(hex, 'hex'), { type: 'bytes' });
-}
-
 function decryptedOrderToScVal(order: DecryptedOrder): xdr.ScVal {
   return scMap({
     user: new Address(order.user).toScVal(),
@@ -79,7 +71,11 @@ function nativeSettlementResult(value: unknown): SettlementResult {
   };
 }
 
-async function invokeContract(contractId: string, method: string, args: xdr.ScVal[]): Promise<unknown> {
+async function invokeContract(
+  contractId: string,
+  method: string,
+  args: xdr.ScVal[]
+): Promise<{ value: unknown; txHash: string }> {
   const signer = getSignerKeypair();
   const account = await server.getAccount(signer.publicKey());
   const contract = new Contract(contractId);
@@ -114,7 +110,7 @@ async function invokeContract(contractId: string, method: string, args: xdr.ScVa
     throw new AppError(`${method} failed on-chain: ${getResult.status}`, 502);
   }
 
-  return getResult.returnValue ? scValToNative(getResult.returnValue) : undefined;
+  return { value: getResult.returnValue ? scValToNative(getResult.returnValue) : undefined, txHash: sendResult.hash };
 }
 
 export const sorobanService = {
@@ -122,22 +118,27 @@ export const sorobanService = {
     return server;
   },
 
-  async createBatch(batchId: string, orderIds: string[]): Promise<void> {
+  /**
+   * Seals a batch on-chain: records the commitment to its ordered
+   * ciphertexts in order-vault. Validators check this record themselves
+   * before releasing any decryption share, so this must happen first.
+   */
+  async createBatch(batchId: string, ciphertexts: string[]): Promise<{ contentHash: string; txHash: string | null }> {
+    const contentHash = batchCommitment(ciphertexts);
     if (!config.orderVaultContract) {
-      logger.warn(`[sorobanService] ORDER_VAULT_CONTRACT unset — skipping on-chain createBatch for ${batchId}`);
-      return;
+      logger.warn(
+        `[sorobanService] ORDER_VAULT_CONTRACT unset — sealing batch ${batchId} in the in-memory dev ledger (in-process validators only)`
+      );
+      devCommitmentLedger.record(batchId, ciphertexts.length, contentHash);
+      return { contentHash, txHash: null };
     }
 
-    const contentHash = crypto
-      .createHash('sha256')
-      .update([...orderIds].sort().join(','))
-      .digest();
-
-    await invokeContract(config.orderVaultContract, 'create_batch', [
+    const { txHash } = await invokeContract(config.orderVaultContract, 'create_batch', [
       batchIdToScVal(batchId),
-      nativeToScVal(orderIds.length, { type: 'u32' }),
-      nativeToScVal(contentHash, { type: 'bytes' }),
+      nativeToScVal(ciphertexts.length, { type: 'u32' }),
+      nativeToScVal(Buffer.from(contentHash, 'hex'), { type: 'bytes' }),
     ]);
+    return { contentHash, txHash };
   },
 
   async settleBatch(batchId: string, decryptedOrders: DecryptedOrder[]): Promise<SettlementResult[]> {
@@ -157,7 +158,7 @@ export const sorobanService = {
 
     const ordersScVal = xdr.ScVal.scvVec(decryptedOrders.map(decryptedOrderToScVal));
 
-    const raw = await invokeContract(config.settlementEngineContract, 'settle_batch', [
+    const { value: raw } = await invokeContract(config.settlementEngineContract, 'settle_batch', [
       batchIdToScVal(batchId),
       ordersScVal,
     ]);

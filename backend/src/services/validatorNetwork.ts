@@ -7,6 +7,7 @@ import { generateIdentity, verifySigned } from '../crypto/signing';
 import { LocalValidator, PersistedValidatorKey } from '../validator/localValidator';
 import { DOMAIN, SignedBroadcast, SignedShare, SignedTranscript, ValidatorNode } from '../validator/protocol';
 import { RemoteValidator, loadClusterFile } from '../validator/remoteValidator';
+import { CommitmentLedger, SorobanCommitmentLedger, devCommitmentLedger } from '../chain/batchCommitment';
 import logger from '../utils/logger';
 
 export type { ValidatorNode };
@@ -86,12 +87,20 @@ let initializing: Promise<ValidatorNetwork> | null = null;
 
 const keyFileFor = (dir: string, index: number) => (dir ? path.join(dir, `validator-${index}.json`) : '');
 
+/** What in-process validators check sealing against: the real order-vault if configured, else the dev ledger. */
+export function defaultCommitmentLedger(): CommitmentLedger {
+  return config.orderVaultContract
+    ? new SorobanCommitmentLedger(config.orderVaultContract, config.networkPassphrase, config.sorobanRpcUrl)
+    : devCommitmentLedger;
+}
+
 export interface CreateLocalNetworkOptions {
   count: number;
   threshold: number;
   byzantine?: number[];
   dkgFaults?: Record<number, DkgFaults>;
   keyDir?: string;
+  commitments?: CommitmentLedger | 'insecure-skip';
 }
 
 /** In-process validators (dev/tests): fresh identities, then a real DKG among them. */
@@ -106,6 +115,7 @@ export async function createLocalNetwork(opts: CreateLocalNetworkOptions) {
         byzantine: opts.byzantine?.includes(k + 1),
         dkgFaults: opts.dkgFaults?.[k + 1],
         keyFile: keyFileFor(opts.keyDir ?? '', k + 1),
+        commitments: opts.commitments ?? defaultCommitmentLedger(),
       })
   );
   const { result, transcript } = await runDkg(validators, opts.threshold, peers);
@@ -150,6 +160,7 @@ function loadLocalNetwork(dir: string): ValidatorNetwork | null {
       identity: identities[n],
       peers,
       byzantine: config.byzantineValidators.includes(k.index),
+      commitments: defaultCommitmentLedger(),
     })
   );
   return { threshold, groupPublicKey, verificationKeys, validators, mode: 'local' };
@@ -170,6 +181,14 @@ export async function connectRemoteNetwork(clusterFile: string, threshold: numbe
   for (const info of reachable) {
     if (info.identityKey !== identityKeys[info.index]) {
       throw new Error(`validator ${info.index} reports identity ${info.identityKey}, cluster file expects ${identityKeys[info.index]}`);
+    }
+  }
+  for (const info of reachable) {
+    if (info.commitmentCheck !== 'soroban') {
+      logger.warn(
+        `validator ${info.index} verifies batch sealing via "${info.commitmentCheck ?? 'unknown'}", not the chain — ` +
+          'it will trust this coordinator about when a batch is sealed'
+      );
     }
   }
   const keyed = reachable.filter((i) => i.hasKey);

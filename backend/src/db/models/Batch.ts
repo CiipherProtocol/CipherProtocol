@@ -6,6 +6,10 @@ export class Batch extends Model<InferAttributes<Batch>, InferCreationAttributes
   declare id: string;
   declare order_ids: string[];
   declare status: CreationOptional<BatchStatus>;
+  /** sha256 commitment to the batch's ordered ciphertexts, as sealed on-chain (hex). */
+  declare content_hash: CreationOptional<string | null>;
+  /** Stellar transaction that sealed it (null when using the dev in-memory ledger). */
+  declare commitment_tx: CreationOptional<string | null>;
   declare created_at: CreationOptional<Date>;
 }
 
@@ -18,6 +22,14 @@ Batch.init(
     order_ids: {
       type: DataTypes.JSON,
       allowNull: false,
+    },
+    content_hash: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    commitment_tx: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
     },
     status: {
       type: DataTypes.ENUM('created', 'submitted', 'settled', 'failed'),
