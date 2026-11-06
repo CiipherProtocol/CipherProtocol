@@ -30,10 +30,23 @@ two contracts (see `contracts/README.md`) — every on-chain call the backend
 makes (batch attestations, settlement, fee collection) is signed by it.
 **Never commit this value** — `.env` is gitignored for exactly this reason.
 
-On first start the 5 simulated validators run a distributed key generation
-for a 3-of-5 key. No dealer is involved, and each validator writes only its
-own share to `data/validators/validator-<i>.json` (gitignored), next to the
-public `dkg-transcript.json`. Delete that directory to re-key. Set `AUTH_TOKEN_SECRET` (≥ 32
+By default the 5 validators run inside the backend. On first start they run
+a distributed key generation for a 3-of-5 key. No dealer is involved, and
+each validator writes only its own share to
+`data/validators/validator-<i>.json` (gitignored), next to the public
+`dkg-transcript.json`. Delete that directory to re-key.
+
+To run validators as **separate processes** instead:
+
+```bash
+npm run validators:dev        # terminal 1: 5 validator processes on :6001-6005
+VALIDATOR_CLUSTER_FILE=data/cluster/cluster.json npm run dev   # terminal 2
+```
+
+The first backend start runs the DKG over HTTP. Later starts reuse the
+shares, and the backend keeps working with up to 2 validators down. A
+single production validator runs with `npm run validator:start`, configured
+via the env vars documented in `src/validator/main.ts`. Set `AUTH_TOKEN_SECRET` (≥ 32
 chars, e.g. `openssl rand -hex 32`) so sessions survive restarts. To watch
 the DLEQ proofs reject bad validators, set `BYZANTINE_VALIDATORS=2,4`. With
 3-of-5, orders still settle, and with three bad validators they fail cleanly.
@@ -52,6 +65,10 @@ the DLEQ proofs reject bad validators, set `BYZANTINE_VALIDATORS=2,4`. With
 | GET | `/api/settlement/:batchId` | – | Settlement results |
 | POST | `/api/settlement/:batchId/settle` | – | Retry a failed batch (idempotent) |
 
+Validator processes expose their own API under `/v1/*` (DKG rounds,
+`decryption-shares`, `info`), and every route needs the coordinator's bearer
+token. See `src/validator/server.ts`.
+
 ## Scripts
 
 - `npm run dev` — dev server (`ts-node-dev`, auto-restart)
@@ -59,6 +76,8 @@ the DLEQ proofs reject bad validators, set `BYZANTINE_VALIDATORS=2,4`. With
 - `npm test` — Vitest: threshold crypto, the end-to-end submit → batch →
   decrypt → settle pipeline, and auth (in-memory SQLite, no network)
 - `npm run typecheck` — `tsc` over sources and tests
+- `npm run validators:dev` — local 5-process validator cluster
+- `npm run validator` / `validator:start` — run one validator (source / built)
 
 ## Structure
 

@@ -12,8 +12,8 @@ miner-equivalent) can see or front-run an order before it executes.
 **Status: working proof-of-concept on Stellar testnet.** Orders are
 encrypted in the browser with real t-of-n threshold encryption and are only
 decrypted, with verifiable validator shares, after their batch is sealed.
-The validator set is still simulated in one process. See [Status](#status)
-before trusting this with real funds.
+Validators generate the key together and can run as separate processes.
+See [Status](#status) before trusting this with real funds.
 
 [![CI](https://github.com/CiipherProtocol/CipherProtocol/actions/workflows/ci.yml/badge.svg)](https://github.com/CiipherProtocol/CipherProtocol/actions/workflows/ci.yml)
 
@@ -73,18 +73,26 @@ What's real and tested:
   jointly generate the threshold key (Joint-Feldman with complaints), so no
   dealer ever knows the group secret. Shares travel encrypted to their
   recipient, and dealers who cheat are disqualified.
-- **Tests and CI**: 41 backend tests (crypto, DKG, end-to-end pipeline, auth),
+- **Validators as separate processes** (`backend/src/validator/`): each
+  holds one share and an identity key, behind an authenticated HTTP API.
+  The coordinator is treated as hostile: every DKG message is signed, and
+  share-harvesting tricks abort the DKG instead of leaking. Run
+  `npm run validators:dev` for a 5-process cluster.
+- **Tests and CI**: 55 backend tests (crypto, DKG, malicious coordinator,
+  remote validators, end-to-end pipeline, auth),
   8 frontend tests, and the contract suites. They run on every PR, together
   with a source-integrity check that blocks hidden or obfuscated code.
 
 What's **not** real yet:
 
-- **The validators share one process.** There's no dealer anymore, but all
-  `n` validators run inside the backend and keep their share files on one
-  disk. So the operator of that machine could still collect `t` shares. The
-  cryptography is real, but trust is only truly distributed once each
-  validator runs on its own machine. Next step: remote validators
-  (see [the design doc](docs/THRESHOLD_ENCRYPTION.md#what-is-simulated-and-whats-next)).
+- **Validators trust the coordinator about *when* to decrypt.** They
+  authenticate it, but they don't yet check on-chain that a batch is sealed
+  before releasing shares. Next step: commit ciphertext hashes on-chain and
+  have validators verify them.
+- **No independent operators yet.** Validators can run on separate
+  machines, but today they're run by one party (in-process by default, or
+  `validators:dev` on one host). See
+  [the design doc](docs/THRESHOLD_ENCRYPTION.md#what-is-still-trusted-and-whats-next).
 - **The on-chain vault is an attestation, not a ledger of orders.**
   `order-vault.create_batch` records an admin-signed hash and count. The
   backend database is still the mempool, and it doesn't yet commit to
