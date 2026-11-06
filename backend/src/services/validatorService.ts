@@ -51,14 +51,15 @@ export const validatorService = {
    * claims about itself.
    */
   async syncValidatorRegistry() {
-    const { validators } = await initValidatorNetwork();
+    const { validators, verificationKeys } = await initValidatorNetwork();
     for (const v of validators) {
+      const verificationKey = verificationKeys[v.index];
       const [row] = await Validator.findOrCreate({
         where: { address: v.address },
-        defaults: { address: v.address, public_share: v.verificationKey, status: 'active' },
+        defaults: { address: v.address, public_share: verificationKey, status: 'active' },
       });
-      if (row.public_share !== v.verificationKey) {
-        await row.update({ public_share: v.verificationKey, status: 'active' });
+      if (row.public_share !== verificationKey) {
+        await row.update({ public_share: verificationKey, status: 'active' });
       }
     }
   },
@@ -95,7 +96,7 @@ export const validatorService = {
     const ciphertexts = orders.map((o) => o.encrypted_data);
 
     const responses = await Promise.allSettled(
-      net.validators.map(async (v) => ({ v, shares: await v.requestDecryptionShares(ciphertexts) }))
+      net.validators.map(async (v) => ({ v, shares: await v.requestDecryptionShares(batchId, ciphertexts) }))
     );
 
     // validShares[k] = verified shares for orders[k]

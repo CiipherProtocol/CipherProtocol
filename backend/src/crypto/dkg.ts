@@ -12,7 +12,9 @@
  *               transport key* (the same ElGamal+AES-GCM cipher used for
  *               orders), so whoever routes the messages learns nothing.
  *  2. Verify.   j decrypts its shares and checks
- *               s_{i→j}·G == Σ_k j^k·C_{i,k}. Any failure → complaint(i).
+ *               s_{i→j}·G == Σ_k j^k·C_{i,k}. A share that fails →
+ *               complaint(i). A share that is *missing* aborts the DKG
+ *               instead (see receive()).
  *  3. Respond.  An accused dealer must publish s_{i→j}. Everyone checks it
  *               against i's commitments; a dealer that fails (or stays
  *               silent) is disqualified.
@@ -216,6 +218,12 @@ export class DkgParticipant {
         this.threshold
       );
       const msg = shares.find((s) => s.dealer === dealer && s.recipient === this.index);
+      if (commitments && !msg) {
+        // Don't complain about a *missing* share: the answer would be a public
+        // reveal, so a router that drops messages could harvest our share.
+        // Abort instead — dropping messages can then only stall the DKG.
+        throw new Error(`no share received from dealer ${dealer}; aborting DKG`);
+      }
       let share: string | null = null;
       if (commitments && msg) {
         try {

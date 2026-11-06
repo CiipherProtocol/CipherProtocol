@@ -5,7 +5,7 @@ import { sequelize } from '../src/db';
 import { Order } from '../src/db/models/Order';
 import { Batch } from '../src/db/models/Batch';
 import { batchingService } from '../src/services/batchingService';
-import { createSimulatedNetwork, setValidatorNetwork } from '../src/services/validatorNetwork';
+import { createLocalNetwork, setValidatorNetwork } from '../src/services/validatorNetwork';
 import { validatorService } from '../src/services/validatorService';
 import { authHeaders, newUser, submitSwap } from './helpers';
 
@@ -13,7 +13,7 @@ const app = createApp();
 
 /** Fresh 3-of-5 validator set, keyed by a real DKG, where the listed indices misbehave. */
 async function useNetwork(byzantine: number[] = []) {
-  setValidatorNetwork(await createSimulatedNetwork({ count: 5, threshold: 3, byzantine }));
+  setValidatorNetwork(await createLocalNetwork({ count: 5, threshold: 3, byzantine }));
   await validatorService.syncValidatorRegistry();
 }
 

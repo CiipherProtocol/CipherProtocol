@@ -38,6 +38,10 @@ export const config = {
    * DKG on first start (a real deployment keeps each on its own machine).
    * Empty = in-memory, re-run DKG every start. */
   validatorKeyDir: process.env.VALIDATOR_KEY_DIR ?? path.join(__dirname, '..', 'data', 'validators'),
+  /** If set, validators are separate processes listed in this JSON file
+   * (see validator/devCluster.ts) and reached over HTTP; the in-process
+   * validators and VALIDATOR_KEY_DIR are not used. */
+  validatorClusterFile: process.env.VALIDATOR_CLUSTER_FILE || '',
   /** Validator indices that misbehave (return invalid shares) — for
    * demonstrating that DLEQ proofs catch them. e.g. "2,4". */
   byzantineValidators: (process.env.BYZANTINE_VALIDATORS || '')
